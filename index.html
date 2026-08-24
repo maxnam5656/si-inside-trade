@@ -249,7 +249,7 @@
   .save-toast{
     position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(10px);
     background:var(--ink); color:var(--paper); padding:8px 18px; border-radius:20px;
-    font-size:16px; opacity:0; transition:all .25s; pointer-events:none; z-index:100;
+    font-size:16px; opacity:0; transition:all .25s; pointer-events:none;
   }
   .save-toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
   .backup-bar{
@@ -333,17 +333,17 @@
   .cal-cell .status-icon.icon-no{color:var(--loss);}
   .cal-cell .status-icon.icon-skip{color:#000; font-size:16px;}
   .cal-cell .cal-plan-badge{
-    font-size:14px; color:var(--ink-soft); line-height:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    font-size:16px; color:var(--ink-soft); line-height:1;
   }
   .cal-cell .cal-note-preview{
-    font-size:12px; color:var(--ink-soft); line-height:1.3; overflow:hidden;
+    font-size:16px; color:var(--ink-soft); line-height:1.3; overflow:hidden;
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
   }
   .cal-cell.today .daynum{color:var(--red); font-weight:700;}
   @media (max-width:560px){
     .cal-cell{min-height:48px; padding:4px;}
     .cal-cell .cal-note-preview{display:none;}
-    .cal-cell .cal-plan-badge{font-size:12px;}
+    .cal-cell .cal-plan-badge{font-size:14px;}
   }
 
   /* Modal */
@@ -352,7 +352,7 @@
     display:flex; align-items:center; justify-content:center; padding:16px;
   }
   .modal-box{
-    background:var(--paper); border-radius:5px; padding:22px; max-width:480px; width:100%;
+    background:var(--paper); border-radius:5px; padding:22px; max-width:420px; width:100%;
     max-height:88vh; overflow-y:auto;
   }
   .modal-title{
@@ -361,7 +361,7 @@
   .status-choices{display:flex; gap:8px; flex-wrap:wrap;}
   .status-choices button{
     border:1px solid var(--line); background:var(--paper-alt); border-radius:20px;
-    padding:7px 14px; font-size:14px; cursor:pointer; font-family:'Noto Sans Thai'; color:var(--ink-soft);
+    padding:7px 14px; font-size:16px; cursor:pointer; font-family:'Noto Sans Thai'; color:var(--ink-soft);
   }
   .status-choices button.st-ok.selected{background:var(--win); border-color:var(--win); color:#fff;}
   .status-choices button.st-no.selected{background:var(--loss); border-color:var(--loss); color:#fff;}
@@ -370,7 +370,7 @@
   .cal-plan-block{margin-bottom:16px; padding-bottom:14px; border-bottom:1px dashed var(--line);}
   .cal-plan-block:last-child{border-bottom:none; margin-bottom:8px; padding-bottom:0;}
   .cal-plan-status{margin:8px 0;}
-  .cal-plan-status button{padding:6px 12px; font-size:14px;}
+  .cal-plan-status button{padding:6px 12px; font-size:16px;}
   .cal-plan-note-group{display:flex; align-items:center; gap:8px;}
   .cal-plan-sign{
     width:44px; height:44px; flex-shrink:0; border-radius:3px; border:1px solid var(--win);
@@ -422,7 +422,7 @@
     .rate-display button{ width:38px; height:38px; }
   }
   .rate-display button:hover{border-color:var(--red);}
-  .rate-updated{display:block; font-size:14px; color:var(--ink-soft); margin-top:4px;}
+  .rate-updated{display:block; font-size:16px; color:var(--ink-soft); margin-top:4px;}
 
   /* Timeframe plan sheet */
   .plan-card{
@@ -903,11 +903,6 @@ async function loadAll(){
     trades = t ? JSON.parse(t) : [];
   }catch(e){ trades = []; }
 
-  await loadCalendar();
-  await loadWeekly();
-  await loadPlanData();
-  await loadPlanHistory();
-
   renderRules();
   renderStats();
   renderTrades();
@@ -929,6 +924,7 @@ async function saveTrades(){
     toast('บันทึกแล้ว');
   }catch(e){ console.error('save trades failed', e); toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); }
 }
+
 
 function renderRules(){
   const list = document.getElementById('rulesList');
@@ -1182,11 +1178,7 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
     exportedAt: new Date().toISOString(),
     motto: document.getElementById('motto').textContent.trim(),
     rules: rules,
-    trades: trades,
-    calendar: calendarData,
-    weekly: weeklyRows,
-    planData: planData,
-    planHistory: planHistory
+    trades: trades
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -1229,49 +1221,25 @@ document.getElementById('importFile').addEventListener('change', (e)=>{
     );
 
     if(mode){
+      // merge: incoming trades overwrite same id, others appended
       const incoming = data.trades;
       const map = new Map(trades.map(t=>[t.id, t]));
       incoming.forEach(t=> map.set(t.id, t));
       trades = Array.from(map.values());
+      // merge rules: append any rule text not already present
       (data.rules||[]).forEach(r=>{ if(r && !rules.includes(r)) rules.push(r); });
-      if(data.calendar) Object.assign(calendarData, data.calendar);
-      if(Array.isArray(data.weekly)){
-        const wMap = new Map(weeklyRows.map(w=>[w.id, w]));
-        data.weekly.forEach(w=> wMap.set(w.id, w));
-        weeklyRows = Array.from(wMap.values());
-      }
-      if(Array.isArray(data.planHistory)){
-        const phMap = new Map(planHistory.map(p=>[p.id, p]));
-        data.planHistory.forEach(p=> phMap.set(p.id, p));
-        planHistory = Array.from(phMap.values());
-      }
     } else {
       trades = data.trades;
       rules = Array.isArray(data.rules) ? data.rules : rules;
       if(data.motto) document.getElementById('motto').textContent = data.motto;
-      calendarData = data.calendar || {};
-      weeklyRows = Array.isArray(data.weekly) ? data.weekly : [];
-      if(data.planData) planData = data.planData;
-      planHistory = Array.isArray(data.planHistory) ? data.planHistory : [];
     }
 
     await saveTrades();
     await saveRules();
     await saveMotto();
-    await saveCalendar();
-    await saveWeekly();
-    await savePlanData();
-    await savePlanHistory();
-
     renderRules();
     renderStats();
     renderTrades();
-    renderCalendar();
-    renderWeekly();
-    fillPlanMetaInputs();
-    renderPlanForm();
-    renderPlanHistory();
-
     toast('นำเข้าข้อมูลสำเร็จ');
     e.target.value = '';
   };
@@ -1293,7 +1261,15 @@ function numColorHex(v){
   if(v === '' || v === null || v === undefined || isNaN(n) || n === 0) return null;
   return n < 0 ? IMG_COLORS.loss : IMG_COLORS.win;
 }
-
+function drawColoredLine(ctx, segments, x, y){
+  let cx = x;
+  segments.forEach(seg=>{
+    if(seg.font) ctx.font = seg.font;
+    ctx.fillStyle = seg.color || IMG_COLORS.ink;
+    ctx.fillText(seg.text, cx, y);
+    cx += ctx.measureText(seg.text).width;
+  });
+}
 const IMG_PX = Math.round(10 / 2.54 * 300); // 10cm at 300dpi ≈ 1181px
 
 async function ensureFonts(){
@@ -1687,7 +1663,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 });
 
 /* ---------- ปฏิทินบันทึกวินัย (discipline calendar) ---------- */
-let calendarData = {}; // { 'YYYY-MM-DD': {plans:[{status:'ok'|'no'|'skip', note:'', sign:'+', digits:''}]} }
+let calendarData = {}; // { 'YYYY-MM-DD': {status:'ok'|'no'|'skip', note:''} }
 let calYear, calMonth; // calMonth: 0-11
 let calSelectedDate = null;
 let calSelectedPlans = [];
@@ -1695,7 +1671,6 @@ let calSelectedPlans = [];
 function pad2(n){ return String(n).padStart(2,'0'); }
 function dateKey(y,m,d){ return `${y}-${pad2(m+1)}-${pad2(d)}`; }
 function formatThaiDateFromKey(key){
-  if(!key) return '—';
   const [y,m,d] = key.split('-').map(Number);
   return `${d} ${THAI_MONTHS[m-1]} ${y+543}`;
 }
@@ -1711,10 +1686,6 @@ async function loadCalendar(){
     const c = localStorage.getItem(STORAGE_PREFIX + 'calendar');
     calendarData = c ? JSON.parse(c) : {};
   }catch(e){ calendarData = {}; }
-
-  const today = new Date();
-  calYear = today.getFullYear();
-  calMonth = today.getMonth();
 }
 async function saveCalendar(){
   try{
@@ -1744,6 +1715,7 @@ function renderCalendar(){
   grid.innerHTML = '';
 
   const firstOfMonth = new Date(calYear, calMonth, 1);
+  // JS getDay(): 0=Sun..6=Sat -> Sun-first index, so use directly
   const startOffset = firstOfMonth.getDay();
   const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
 
@@ -1755,7 +1727,7 @@ function renderCalendar(){
     grid.appendChild(blank);
   }
 
-  for(let d=1; d<=daysInMonth; d++){
+for(let d=1; d<=daysInMonth; d++){
     const key = dateKey(calYear, calMonth, d);
     const entry = calendarData[key];
     const cell = document.createElement('div');
@@ -1767,139 +1739,336 @@ function renderCalendar(){
       : aggStatus === 'no' ? '<span class="status-icon icon-no">✕</span>'
       : aggStatus === 'skip' ? '<span class="status-icon icon-skip">●</span>'
       : '';
-    const noteTxt = calAggregateNote(entry);
     cell.innerHTML = `
       <span class="daynum">${d}</span>
       ${icon}
       ${entry && entry.plans && entry.plans.length ? `<span class="cal-plan-badge">📝 ${entry.plans.length}</span>` : ''}
-      ${noteTxt ? `<span class="cal-note-preview">${escapeHtml(noteTxt)}</span>` : ''}
     `;
     cell.addEventListener('click', ()=> openCalModal(key));
     grid.appendChild(cell);
   }
 }
 
-document.getElementById('calPrev').addEventListener('click', ()=>{
-  calMonth--;
-  if(calMonth < 0){ calMonth = 11; calYear--; }
-  renderCalendar();
-});
-document.getElementById('calNext').addEventListener('click', ()=>{
-  calMonth++;
-  if(calMonth > 11){ calMonth = 0; calYear++; }
-  renderCalendar();
-});
-
 function openCalModal(key){
   calSelectedDate = key;
-  document.getElementById('calModalDate').textContent = formatThaiDateFromKey(key);
-  const entry = calendarData[key] || {};
-  calSelectedPlans = Array.isArray(entry.plans) ? JSON.parse(JSON.stringify(entry.plans)) : [];
-  renderCalModalPlans();
+  const entry = calendarData[key] || {plans:[]};
+  calSelectedPlans = Array.isArray(entry.plans)
+    ? entry.plans.map(p=>({text: p.text||'', status: p.status||'', note: p.note||''}))
+    : [];
+  const [y,m,d] = key.split('-').map(Number);
+  document.getElementById('calModalDate').textContent = `${d} ${THAI_MONTHS[m-1]} ${y+543}`;
+  renderCalPlanList();
   document.getElementById('calModalOverlay').style.display = 'flex';
 }
 
-function renderCalModalPlans(){
-  document.getElementById('calPlanCount').textContent = calSelectedPlans.length;
-  const container = document.getElementById('calPlanList');
-  container.innerHTML = '';
+function parseSignedNumber(v){
+  const s = v || '';
+  const sign = s[0] === '-' ? '-' : '+';
+  const digits = s.replace(/^[+\-]/, '').replace(/[^0-9.]/g, '');
+  return {sign, digits};
+}
 
-  if(!calSelectedPlans.length){
-    container.innerHTML = `<div style="color:var(--ink-soft); font-size:14px; margin-bottom:10px;">ยังไม่มีหัวข้อแผนสำหรับวันนี้</div>`;
-    return;
-  }
-
-  calSelectedPlans.forEach((p, idx)=>{
+function renderCalPlanList(){
+  const list = document.getElementById('calPlanList');
+  list.innerHTML = '';
+  calSelectedPlans.forEach((p, i)=>{
+    const {sign, digits} = parseSignedNumber(p.note);
     const block = document.createElement('div');
     block.className = 'cal-plan-block';
     block.innerHTML = `
       <div class="rule-row cal-plan-row">
-        <span class="num">#${idx+1}</span>
-        <input type="text" class="cal-plan-note" placeholder="รายละเอียดแผน..." value="${escapeAttr(p.note||'')}">
-        <button class="cal-plan-del" title="ลบหัวข้อนี้">✕</button>
+        <span class="num">แผนที่ ${i+1}</span>
+        <button data-del="${i}" title="ลบ">✕</button>
       </div>
       <div class="status-choices cal-plan-status">
-        <button type="button" class="st-ok ${p.status==='ok'?'selected':''}" data-s="ok">✓ ทำได้</button>
-        <button type="button" class="st-no ${p.status==='no'?'selected':''}" data-s="no">✕ ทำไม่ได้</button>
-        <button type="button" class="st-skip ${p.status==='skip'?'selected':''}" data-s="skip">● ไม่ได้เทรด</button>
+        <button type="button" data-i="${i}" data-status="ok" class="st-ok${p.status==='ok' ? ' selected' : ''}">✓ ทำได้</button>
+        <button type="button" data-i="${i}" data-status="no" class="st-no${p.status==='no' ? ' selected' : ''}">✕ ทำไม่ได้</button>
+        <button type="button" data-i="${i}" data-status="skip" class="st-skip${p.status==='skip' ? ' selected' : ''}">● ข้าม</button>
       </div>
-      <div class="cal-plan-note-group" style="margin-top:6px;">
-        <button type="button" class="cal-plan-sign ${p.sign==='-'?'neg':''}">${p.sign||'+'}</button>
-        <input type="text" class="cal-plan-note-digits" placeholder="ตัวเลข/หมายเหตุ" value="${escapeAttr(p.digits||'')}">
+      <div class="cal-plan-note-group">
+        <button type="button" class="cal-plan-sign${sign==='-' ? ' neg' : ''}" data-i="${i}" data-sign="${sign}">${sign}</button>
+        <input type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]{0,2}" class="cal-plan-note-digits" data-i="${i}" value="${escapeAttr(digits)}" placeholder="0">
       </div>
     `;
-
-    block.querySelector('.cal-plan-note').addEventListener('input', e=>{
-      calSelectedPlans[idx].note = e.target.value;
-    });
-    block.querySelector('.cal-plan-del').addEventListener('click', ()=>{
-      calSelectedPlans.splice(idx, 1);
-      renderCalModalPlans();
-    });
-    block.querySelectorAll('.cal-plan-status button').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        calSelectedPlans[idx].status = btn.dataset.s;
-        renderCalModalPlans();
-      });
-    });
-    const signBtn = block.querySelector('.cal-plan-sign');
-    signBtn.addEventListener('click', ()=>{
-      const cur = calSelectedPlans[idx].sign || '+';
-      calSelectedPlans[idx].sign = cur === '+' ? '-' : '+';
-      renderCalModalPlans();
-    });
-    block.querySelector('.cal-plan-note-digits').addEventListener('input', e=>{
-      calSelectedPlans[idx].digits = e.target.value;
-    });
-
-    container.appendChild(block);
+    list.appendChild(block);
   });
+  list.querySelectorAll('.cal-plan-sign').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const i = +btn.dataset.i;
+      const newSign = btn.dataset.sign === '+' ? '-' : '+';
+      btn.dataset.sign = newSign;
+      btn.textContent = newSign;
+      btn.classList.toggle('neg', newSign === '-');
+      const digitsInput = list.querySelector(`.cal-plan-note-digits[data-i="${i}"]`);
+      const digits = digitsInput ? digitsInput.value : '';
+      calSelectedPlans[i].note = digits ? (newSign + digits) : '';
+    });
+  });
+  list.querySelectorAll('.cal-plan-note-digits').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const i = +e.target.dataset.i;
+      let digits = e.target.value.replace(/[^0-9.]/g, '');
+      const firstDot = digits.indexOf('.');
+      if(firstDot !== -1){
+        digits = digits.slice(0, firstDot+1) + digits.slice(firstDot+1).replace(/\./g, '');
+        const [intPart, decPart] = digits.split('.');
+        digits = intPart + '.' + decPart.slice(0, 2);
+      }
+      e.target.value = digits;
+      const signBtn = list.querySelector(`.cal-plan-sign[data-i="${i}"]`);
+      const sign = signBtn ? signBtn.dataset.sign : '+';
+      calSelectedPlans[i].note = digits ? (sign + digits) : '';
+    });
+  });
+  list.querySelectorAll('.cal-plan-status button').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const i = +btn.dataset.i;
+      const st = btn.dataset.status;
+      calSelectedPlans[i].status = (calSelectedPlans[i].status === st) ? '' : st;
+      renderCalPlanList();
+    });
+  });
+  list.querySelectorAll('button[data-del]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      calSelectedPlans.splice(+e.target.dataset.del, 1);
+      renderCalPlanList();
+    });
+  });
+  document.getElementById('calPlanCount').textContent = calSelectedPlans.length;
 }
 
 document.getElementById('calAddPlanBtn').addEventListener('click', ()=>{
-  calSelectedPlans.push({status:'', note:'', sign:'+', digits:''});
-  renderCalModalPlans();
+  calSelectedPlans.push({text:'', status:'', note:''});
+  renderCalPlanList();
+  const inputs = document.querySelectorAll('#calPlanList .cal-plan-note-digits');
+  if(inputs.length) inputs[inputs.length-1].focus();
 });
-
-document.getElementById('calSaveBtn').addEventListener('click', async ()=>{
-  if(!calSelectedDate) return;
-  if(!calendarData[calSelectedDate]) calendarData[calSelectedDate] = {};
-  calendarData[calSelectedDate].plans = calSelectedPlans;
-  await saveCalendar();
+function closeCalModal(){
   document.getElementById('calModalOverlay').style.display = 'none';
+  calSelectedDate = null;
+  calSelectedPlans = [];
+}
+
+document.getElementById('calPrev').addEventListener('click', ()=>{
+  calMonth--; if(calMonth<0){ calMonth=11; calYear--; }
   renderCalendar();
 });
-
-document.getElementById('calCloseBtn').addEventListener('click', ()=>{
-  document.getElementById('calModalOverlay').style.display = 'none';
+document.getElementById('calNext').addEventListener('click', ()=>{
+  calMonth++; if(calMonth>11){ calMonth=0; calYear++; }
+  renderCalendar();
 });
+document.getElementById('calCloseBtn').addEventListener('click', closeCalModal);
+document.getElementById('calModalOverlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'calModalOverlay') closeCalModal();
+});
+document.getElementById('calSaveBtn').addEventListener('click', async ()=>{
+  if(!calSelectedDate) return;
+  const plans = calSelectedPlans
+    .map(p=>({text:(p.text||'').trim(), status:p.status||'', note:(p.note||'').trim()}))
+    .filter(p=>p.text || p.status || p.note);
+  if(!plans.length){
+    delete calendarData[calSelectedDate];
+  } else {
+    calendarData[calSelectedDate] = {plans};
+  }
+  await saveCalendar();
+  renderCalendar();
+  closeCalModal();
+});
+
+(function initCalendar(){
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  loadCalendar();
+})();
+
+function calCollectRange(startKey, endKey){
+  return Object.keys(calendarData)
+    .filter(k => k >= startKey && k <= endKey)
+    .sort();
+}
+
+function drawCalendarRangeCanvas(startKey, endKey){
+  const keys = calCollectRange(startKey, endKey);
+  const padX = 40, maxW = IMG_PX - padX*2;
+  const headerH = 190, rowH = 64, bottomPad = 80;
+  const listH = keys.length ? keys.length*rowH : 60;
+  const height = Math.max(IMG_PX, headerH + listH + bottomPad);
+  const {canvas, ctx} = newJournalCanvasTall(height);
+  let y = 60;
+
+  ctx.fillStyle = IMG_COLORS.ink;
+  ctx.font = '600 32px "Noto Serif Thai"';
+  ctx.fillText('ปฏิทินบันทึกวินัย', padX, y);
+  y += 30;
+
+  ctx.font = '600 18px "Noto Sans Thai"';
+  ctx.fillStyle = IMG_COLORS.inkSoft;
+  ctx.fillText(`ช่วงวันที่: ${formatThaiDateFromKey(startKey)} – ${formatThaiDateFromKey(endKey)}`, padX, y);
+  y += 32;
+
+  ctx.font = '400 15px "Noto Sans Thai"';
+  const legend = [['ทำตามวินัยได้', IMG_COLORS.win], ['ทำไม่ได้', IMG_COLORS.loss], ['ไม่ได้เทรด', IMG_COLORS.be]];
+  let lx = padX;
+  legend.forEach(([label, color])=>{
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(lx+5, y-4, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = IMG_COLORS.inkSoft;
+    ctx.fillText(label, lx+16, y);
+    lx += ctx.measureText(label).width + 60;
+  });
+  y += 28;
+
+  ctx.strokeStyle = IMG_COLORS.line;
+  ctx.beginPath(); ctx.moveTo(padX,y); ctx.lineTo(IMG_PX-padX,y); ctx.stroke();
+  y += 30;
+
+  if(!keys.length){
+    ctx.font = '400 18px "Noto Sans Thai"';
+    ctx.fillStyle = IMG_COLORS.inkSoft;
+    ctx.fillText('ไม่มีข้อมูลบันทึกในช่วงวันที่ที่เลือก', padX, y);
+    y += 20;
+  } else {
+    keys.forEach(key=>{
+      const entry = calendarData[key];
+      const aggStatus = calAggregateStatus(entry);
+      let bg = IMG_COLORS.paper, border = IMG_COLORS.line, markColor = IMG_COLORS.inkSoft, mark = '';
+      if(aggStatus === 'ok'){ bg = 'rgba(47,111,94,0.12)'; border = IMG_COLORS.win; markColor = IMG_COLORS.win; mark = '✓'; }
+      else if(aggStatus === 'no'){ bg = 'rgba(176,69,43,0.12)'; border = IMG_COLORS.loss; markColor = IMG_COLORS.loss; mark = '✕'; }
+      else if(aggStatus === 'skip'){ bg = 'rgba(138,127,94,0.12)'; border = IMG_COLORS.be; markColor = IMG_COLORS.be; mark = '●'; }
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(padX, y, maxW, rowH-10);
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(padX, y, maxW, rowH-10);
+
+      ctx.font = '600 18px "IBM Plex Mono"';
+      ctx.fillStyle = IMG_COLORS.ink;
+      ctx.fillText(formatThaiDateFromKey(key), padX+12, y+26);
+
+      if(mark){
+        ctx.font = '700 20px "Noto Sans Thai"';
+        ctx.fillStyle = markColor;
+        ctx.textAlign = 'right';
+        ctx.fillText(mark, padX+maxW-12, y+26);
+        ctx.textAlign = 'left';
+      }
+
+      const notes = (entry.plans||[]).map(p=>p.note).filter(Boolean).join(' · ');
+      if(notes){
+        ctx.font = '400 14px "Noto Sans Thai"';
+        ctx.fillStyle = IMG_COLORS.inkSoft;
+        wrapTextChars(ctx, notes, padX+12, y+46, maxW-24, 16, 1);
+      }
+      y += rowH;
+    });
+  }
+
+  y += 10;
+  ctx.strokeStyle = IMG_COLORS.line;
+  ctx.beginPath(); ctx.moveTo(padX,y); ctx.lineTo(IMG_PX-padX,y); ctx.stroke();
+  y += 26;
+
+  const okCount = keys.filter(k=>calAggregateStatus(calendarData[k])==='ok').length;
+  const noCount = keys.filter(k=>calAggregateStatus(calendarData[k])==='no').length;
+  const skipCount = keys.filter(k=>calAggregateStatus(calendarData[k])==='skip').length;
+  ctx.font = '400 17px "Noto Sans Thai"';
+  ctx.fillStyle = IMG_COLORS.inkSoft;
+  ctx.fillText(`สรุปช่วงนี้ (${keys.length} วันที่มีบันทึก) — ทำตามวินัยได้: ${okCount} วัน · ทำไม่ได้: ${noCount} วัน · ไม่ได้เทรด: ${skipCount} วัน`, padX, y);
+
+  return canvas;
+}
 
 document.getElementById('exportCalImgBtn').addEventListener('click', async ()=>{
-  const start = document.getElementById('calExportStart').value;
-  const end = document.getElementById('calExportEnd').value;
-  if(!start || !end){
-    await appAlert('กรุณาเลือกระยะเวลา (วันที่เริ่ม และ วันสุดท้าย)');
-    return;
+  const startVal = document.getElementById('calExportStart').value;
+  const endVal = document.getElementById('calExportEnd').value;
+  let startKey = startVal, endKey = endVal;
+  if(!startKey || !endKey){
+    const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+    startKey = startKey || dateKey(calYear, calMonth, 1);
+    endKey = endKey || dateKey(calYear, calMonth, daysInMonth);
   }
-  const card = document.querySelector('#page-calendar .cal-card');
-  const canvas = await captureElementAsCanvas(card);
-  if(canvas){
-    downloadCanvasAsJpeg(canvas, `ปฏิทินวินัย-${start}_ถึง_${end}.jpg`);
-  }
+  if(startKey > endKey){ await appAlert('วันที่เริ่มต้องไม่เกินวันสุดท้าย'); return; }
+  await ensureFonts();
+  const canvas = drawCalendarRangeCanvas(startKey, endKey);
+  downloadCanvasAsJpeg(canvas, `ปฏิทินวินัย-${startKey}_ถึง_${endKey}.jpg`);
+  toast('ส่งออกรูปปฏิทินแล้ว');
 });
 
-
-/* ---------- บันทึกรายสัปดาห์ (Weekly log) ---------- */
+/* ---------- บันทึกรายสัปดาห์ (weekly $ / baht log) ---------- */
 let weeklyRows = [];
-let weeklyUsdThbRate = 34.0;
+let liveRate = 0;
+let liveRateUpdatedAt = null;
 
 async function loadWeekly(){
   try{
     const w = localStorage.getItem(STORAGE_PREFIX + 'weekly');
     weeklyRows = w ? JSON.parse(w) : [];
   }catch(e){ weeklyRows = []; }
-  fetchExchangeRate();
+  renderWeekly();
+  loadCachedRate();
+  fetchLiveRate();
 }
+
+function loadCachedRate(){
+  try{
+    const cached = localStorage.getItem(STORAGE_PREFIX + 'liveRate');
+    if(cached){
+      const data = JSON.parse(cached);
+      liveRate = data.rate;
+      liveRateUpdatedAt = data.updatedAt;
+      updateRateDisplay(true);
+    }
+  }catch(e){}
+}
+
+function updateRateDisplay(fromCache){
+  const valEl = document.getElementById('weeklyRateValue');
+  const updEl = document.getElementById('weeklyRateUpdated');
+  if(liveRate){
+    valEl.textContent = `฿${liveRate.toFixed(2)} / $1`;
+    const d = liveRateUpdatedAt ? new Date(liveRateUpdatedAt) : null;
+    const when = d ? d.toLocaleString('th-TH') : '';
+    updEl.textContent = fromCache
+      ? `อัปเดตล่าสุด: ${when} (ค่าที่บันทึกไว้)`
+      : `อัปเดตล่าสุด: ${when}`;
+  } else {
+    valEl.textContent = 'ไม่สามารถโหลดอัตราได้';
+    updEl.textContent = '';
+  }
+  renderWeeklyStats();
+}
+
+async function fetchLiveRate(){
+  const valEl = document.getElementById('weeklyRateValue');
+  valEl.textContent = 'กำลังอัปเดต…';
+  try{
+    const res = await fetch('https://open.er-api.com/v6/latest/USD');
+    const data = await res.json();
+    if(data && data.rates && data.rates.THB){
+      liveRate = data.rates.THB;
+      liveRateUpdatedAt = new Date().toISOString();
+      try{
+        localStorage.setItem(STORAGE_PREFIX + 'liveRate', JSON.stringify({rate: liveRate, updatedAt: liveRateUpdatedAt}));
+      }catch(e){}
+      updateRateDisplay(false);
+    } else {
+      throw new Error('no rate in response');
+    }
+  }catch(e){
+    console.error('fetch rate failed', e);
+    if(liveRate){
+      updateRateDisplay(true);
+    } else {
+      valEl.textContent = 'ไม่สามารถโหลดอัตราได้';
+    }
+  }
+}
+
+document.getElementById('refreshRateBtn').addEventListener('click', fetchLiveRate);
+
 async function saveWeekly(){
   try{
     localStorage.setItem(STORAGE_PREFIX + 'weekly', JSON.stringify(weeklyRows));
@@ -1907,579 +2076,992 @@ async function saveWeekly(){
   }catch(e){ console.error('save weekly failed', e); toast('บันทึกไม่สำเร็จ'); }
 }
 
-async function fetchExchangeRate(){
-  const valEl = document.getElementById('weeklyRateValue');
-  const updEl = document.getElementById('weeklyRateUpdated');
-  valEl.textContent = 'กำลังโหลด…';
-  try{
-    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-    if(!res.ok) throw new Error('Network error');
-    const data = await res.json();
-    if(data && data.rates && data.rates.THB){
-      weeklyUsdThbRate = data.rates.THB;
-      valEl.textContent = `฿${weeklyUsdThbRate.toFixed(2)}`;
-      updEl.textContent = `อัปเดตเมื่อ: ${new Date().toLocaleTimeString('th-TH')}`;
-      renderWeeklyStats();
-      return;
-    }
-  }catch(e){}
-  valEl.textContent = `฿${weeklyUsdThbRate.toFixed(2)} (ค่าเริ่มต้น)`;
-  updEl.textContent = 'ไม่สามารถดึงอัตราแลกเปลี่ยนจริงได้';
+function renderRoundOptionsHtml(selected){
+  let html = `<option value="">-</option>`;
+  for(let n = 1; n <= 99; n++){
+    html += `<option value="${n}" ${String(selected)===String(n)?'selected':''}>${n}</option>`;
+  }
+  return html;
 }
 
-document.getElementById('refreshRateBtn').addEventListener('click', fetchExchangeRate);
+const WEEKLY_NOTE_PRESETS = ['ปั้นพอร์ต', 'ฝึกวินัย'];
 
 function renderWeekly(){
-  const body = document.getElementById('weeklyBody');
-  body.innerHTML = '';
-
-  if(!weeklyRows.length){
-    weeklyRows.push(newWeeklyRow());
-  }
-
-  weeklyRows.forEach((row, idx)=>{
+  const tbody = document.getElementById('weeklyBody');
+  tbody.innerHTML = '';
+  weeklyRows.forEach(row=>{
     const tr = document.createElement('tr');
+    const isPreset = WEEKLY_NOTE_PRESETS.includes(row.note);
+    const customVal = (!isPreset && row.note) ? row.note : '';
     tr.innerHTML = `
-      <td><input type="date" value="${row.date||''}" data-field="date"></td>
-      <td><input type="text" class="mono" placeholder="10:00" value="${escapeAttr(row.time||'')}" data-field="time"></td>
-      <td><input type="text" placeholder="รอบ 1" value="${escapeAttr(row.round||'')}" data-field="round"></td>
-      <td><input type="number" step="any" class="mono" placeholder="0.00" value="${row.usd ?? ''}" data-field="usd"></td>
-      <td><input type="number" step="any" class="mono" placeholder="0.00" value="${row.thbWithdraw ?? ''}" data-field="thbWithdraw"></td>
+      <td><input type="date" data-field="date" data-id="${row.id}" value="${escapeAttr(row.date||'')}"></td>
+      <td><input type="time" data-field="time" data-id="${row.id}" value="${escapeAttr(row.time||'')}"></td>
+      <td><select data-field="round" data-id="${row.id}">${renderRoundOptionsHtml(row.round)}</select></td>
+      <td><input type="number" step="any" class="mono ${numColorClass(row.dollar)}" data-field="dollar" data-id="${row.id}" value="${row.dollar ?? ''}"></td>
+      <td><input type="number" step="any" class="mono ${numColorClass(row.baht)}" data-field="baht" data-id="${row.id}" value="${row.baht ?? ''}"></td>
       <td class="note-cell">
-        <select data-field="notePreset">
-          <option value="">-- เลือก --</option>
-          <option value="วินัย" ${row.notePreset==='วินัย'?'selected':''}>วินัย</option>
-          <option value="ผิดวินัย" ${row.notePreset==='ผิดวินัย'?'selected':''}>ผิดวินัย</option>
-          <option value="ถอนทุน" ${row.notePreset==='ถอนทุน'?'selected':''}>ถอนทุน</option>
-          <option value="ถอนกำไร" ${row.notePreset==='ถอนกำไร'?'selected':''}>ถอนกำไร</option>
-          <option value="อื่น ๆ" ${row.notePreset==='อื่น ๆ'?'selected':''}>อื่น ๆ</option>
+        <select data-role="noteSelect" data-id="${row.id}">
+          <option value="ปั้นพอร์ต" ${row.note==='ปั้นพอร์ต'?'selected':''}>ปั้นพอร์ต</option>
+          <option value="ฝึกวินัย" ${row.note==='ฝึกวินัย'?'selected':''}>ฝึกวินัย</option>
+          <option value="__custom__" ${!isPreset?'selected':''}>กำหนดเอง…</option>
         </select>
-        ${row.notePreset === 'อื่น ๆ' ? `<input type="text" class="note-custom-input" placeholder="ระบุ..." value="${escapeAttr(row.noteCustom||'')}" data-field="noteCustom">` : ''}
+        <input type="text" data-field="note" data-id="${row.id}" placeholder="พิมพ์ข้อความเอง" class="note-custom-input" style="${!isPreset?'':'display:none;'}" value="${escapeAttr(customVal)}">
       </td>
-      <td class="rowdel"><button type="button" title="ลบแถว">✕</button></td>
+      <td class="rowdel"><button data-del="${row.id}" title="ลบแถว">✕</button></td>
     `;
+    tbody.appendChild(tr);
+  });
 
-    tr.querySelectorAll('input, select').forEach(input=>{
-      input.addEventListener('change', e=>{
-        const field = e.target.dataset.field;
-        row[field] = e.target.value;
-        if(field === 'notePreset') renderWeekly();
-        else { saveWeekly(); renderWeeklyStats(); }
-      });
+  tbody.querySelectorAll('input[data-field], select[data-field]').forEach(inp=>{
+    inp.addEventListener('change', e=>{
+      const id = e.target.dataset.id;
+      const field = e.target.dataset.field;
+      const row = weeklyRows.find(r=> String(r.id) === id);
+      if(row){ row[field] = e.target.value; saveWeekly(); renderWeeklyStats(); }
+      if(field === 'dollar' || field === 'baht'){
+        e.target.classList.remove('num-pos','num-neg');
+        const cls = numColorClass(e.target.value);
+        if(cls) e.target.classList.add(cls);
+      }
     });
-
-    tr.querySelector('.rowdel button').addEventListener('click', ()=>{
-      weeklyRows.splice(idx, 1);
+  });
+  tbody.querySelectorAll('[data-role="noteSelect"]').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const id = e.target.dataset.id;
+      const row = weeklyRows.find(r=> String(r.id) === id);
+      const customInput = e.target.nextElementSibling;
+      if(e.target.value === '__custom__'){
+        customInput.style.display = '';
+        customInput.value = row ? (row.note || '') : '';
+        customInput.focus();
+        if(row){ row.note = customInput.value; saveWeekly(); }
+      } else {
+        customInput.style.display = 'none';
+        customInput.value = '';
+        if(row){ row.note = e.target.value; saveWeekly(); }
+      }
+    });
+  });
+  tbody.querySelectorAll('[data-del]').forEach(b=>{
+    b.addEventListener('click', e=>{
+      weeklyRows = weeklyRows.filter(r=> String(r.id) !== e.target.dataset.del);
       saveWeekly();
       renderWeekly();
     });
-
-    body.appendChild(tr);
   });
 
   renderWeeklyStats();
 }
 
-function newWeeklyRow(){
-  return { id: Date.now() + Math.random(), date:'', time:'', round:'', usd:'', thbWithdraw:'', notePreset:'', noteCustom:'' };
+function getWeeklyRate(){
+  return liveRate > 0 ? liveRate : 0;
 }
 
-document.getElementById('addWeeklyRowBtn').addEventListener('click', ()=>{
-  weeklyRows.push(newWeeklyRow());
-  renderWeekly();
-  saveWeekly();
-});
-
 function renderWeeklyStats(){
-  const statsEl = document.getElementById('weeklyStats');
-  let totalUsd = 0;
-  let totalThb = 0;
-
-  weeklyRows.forEach(r=>{
-    totalUsd += Number(r.usd || 0);
-    totalThb += Number(r.thbWithdraw || 0);
-  });
-
-  const convertedThb = totalUsd * weeklyUsdThbRate;
-
-  statsEl.innerHTML = `
-    <div class="stat"><div class="val">$${totalUsd.toFixed(2)}</div><div class="lbl">รวมดอลลาร์ ($)</div></div>
-    <div class="stat"><div class="val">฿${convertedThb.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="lbl">คิดเป็นเงินบาท (โดยประมาณ)</div></div>
-    <div class="stat"><div class="val">฿${totalThb.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="lbl">ถอนเงินบาทรวม</div></div>
+  const bar = document.getElementById('weeklyStats');
+  const totalDollar = weeklyRows.reduce((a,r)=> a + (Number(r.dollar) || 0), 0);
+  const totalBaht = weeklyRows.reduce((a,r)=> a + (Number(r.baht) || 0), 0);
+  const rate = getWeeklyRate();
+  const convertedBaht = totalDollar * rate;
+  bar.innerHTML = `
+    <div class="stat"><div class="val">${weeklyRows.length}</div><div class="lbl">จำนวนแถว</div></div>
+    <div class="stat"><div class="val ${numColorClass(totalDollar)}">$${totalDollar.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="lbl">รวม $</div></div>
+    <div class="stat"><div class="val ${numColorClass(totalBaht)}">฿${totalBaht.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="lbl">รวมถอน (บาท)</div></div>
+    <div class="stat"><div class="val ${numColorClass(convertedBaht)}">฿${convertedBaht.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="lbl">มูลค่า $ แปลงเป็นบาท (อัตรา ${rate ? rate.toFixed(2) : '—'})</div></div>
   `;
 }
 
-document.getElementById('exportWeeklyImgBtn').addEventListener('click', async ()=>{
-  const start = document.getElementById('weeklyExportStart').value;
-  const end = document.getElementById('weeklyExportEnd').value;
-  if(!start || !end){
-    await appAlert('กรุณาเลือกระยะเวลา (วันที่เริ่ม และ วันสุดท้าย)');
-    return;
-  }
-  const card = document.querySelector('#page-weekly .weekly-card');
-  const canvas = await captureElementAsCanvas(card);
-  if(canvas){
-    downloadCanvasAsJpeg(canvas, `บันทึกรายสัปดาห์-${start}_ถึง_${end}.jpg`);
-  }
+document.getElementById('addWeeklyRowBtn').addEventListener('click', ()=>{
+  weeklyRows.push({id: Date.now()+'-'+Math.floor(Math.random()*1000), date:'', time:'', round:'', dollar:'', baht:'', note:''});
+  saveWeekly();
+  renderWeekly();
 });
 
+function drawWeeklyCanvas(rows, rangeLabel){
+  const padX = 50, maxW = IMG_PX - padX*2;
+  const headerH = 340, rowH = 36, bottomPad = 60;
+  const listH = rows.length * rowH;
+  const height = Math.max(IMG_PX, headerH + listH + bottomPad);
+  const {canvas, ctx} = newJournalCanvasTall(height);
+  let y = 72;
 
-/* ---------- สมุดเขียนแผนเพื่อการเรียนพื้นฐาน (Plan sheet) ---------- */
+  ctx.fillStyle = IMG_COLORS.ink;
+  ctx.font = '600 38px "Noto Serif Thai"';
+  ctx.fillText('สรุปบันทึกรายสัปดาห์', padX, y);
+  y += 34;
+
+  ctx.font = '400 19px "IBM Plex Mono"';
+  ctx.fillStyle = IMG_COLORS.inkSoft;
+  ctx.fillText(rangeLabel || new Date().toLocaleDateString('th-TH'), padX, y);
+  y += 48;
+
+  const totalDollar = rows.reduce((a,r)=> a + (Number(r.dollar) || 0), 0);
+  const totalBaht = rows.reduce((a,r)=> a + (Number(r.baht) || 0), 0);
+  const rate = getWeeklyRate();
+  const convertedBaht = totalDollar * rate;
+
+  const stats = [
+    ['จำนวนแถว', String(rows.length)],
+    ['รวม $', `$${totalDollar.toLocaleString(undefined,{maximumFractionDigits:2})}`],
+    ['รวมถอน (บาท)', `฿${totalBaht.toLocaleString(undefined,{maximumFractionDigits:2})}`],
+    [`แปลงเป็นบาท (อัตรา ${rate ? rate.toFixed(2) : '—'})`, `฿${convertedBaht.toLocaleString(undefined,{maximumFractionDigits:2})}`]
+  ];
+  const boxGap = 18, boxW = (maxW - boxGap)/2;
+  stats.forEach((s,i)=>{
+    const col = i%2, row = Math.floor(i/2);
+    const bx = padX + col*(boxW+boxGap), by = y + row*104;
+    ctx.fillStyle = IMG_COLORS.ink;
+    ctx.fillRect(bx, by, boxW, 86);
+    ctx.fillStyle = IMG_COLORS.paper;
+    ctx.font = '700 29px "IBM Plex Mono"';
+    ctx.fillText(s[1], bx+16, by+42);
+    ctx.font = '400 15px "Noto Sans Thai"';
+    ctx.fillText(s[0], bx+16, by+68);
+  });
+  y += 104*2 + 26;
+
+  ctx.strokeStyle = IMG_COLORS.line;
+  ctx.beginPath(); ctx.moveTo(padX,y); ctx.lineTo(IMG_PX-padX,y); ctx.stroke();
+  y += 38;
+
+  ctx.font = '600 24px "Noto Serif Thai"';
+  ctx.fillStyle = IMG_COLORS.ink;
+  ctx.fillText('รายการ', padX, y);
+  y += 34;
+
+  // column headers
+  const colX = [padX, padX+185, padX+330, padX+445, padX+580];
+  ctx.font = '600 16px "Noto Sans Thai"';
+  ctx.fillStyle = IMG_COLORS.inkSoft;
+  ['วันที่','เวลา/รอบ','$','ถอน (บาท)','หมายเหตุ'].forEach((h,i)=> ctx.fillText(h, colX[i], y));
+  y += 26;
+  ctx.strokeStyle = IMG_COLORS.line;
+  ctx.beginPath(); ctx.moveTo(padX,y-16); ctx.lineTo(IMG_PX-padX,y-16); ctx.stroke();
+
+  if(!rows.length){
+    ctx.font = '400 18px "Noto Sans Thai"';
+    ctx.fillStyle = IMG_COLORS.inkSoft;
+    ctx.fillText('ไม่มีข้อมูลในช่วงวันที่ที่เลือก', padX, y+20);
+    y += rowH;
+  } else {
+    rows.forEach(r=>{
+      ctx.font = '600 18px "IBM Plex Mono"';
+      ctx.fillStyle = IMG_COLORS.ink;
+      ctx.fillText(formatDateShortThai(r.date), colX[0], y);
+      ctx.font = '400 16px "Noto Sans Thai"';
+      ctx.fillStyle = IMG_COLORS.inkSoft;
+      ctx.fillText(`${r.time||''} ${r.round?'/ '+r.round:''}`.trim(), colX[1], y);
+      ctx.font = '600 18px "IBM Plex Mono"';
+      ctx.fillStyle = numColorHex(r.dollar) || IMG_COLORS.ink;
+      ctx.fillText(r.dollar ? `$${r.dollar}` : '—', colX[2], y);
+      ctx.fillStyle = numColorHex(r.baht) || IMG_COLORS.ink;
+      ctx.fillText(r.baht ? `฿${r.baht}` : '—', colX[3], y);
+      ctx.font = '400 15px "Noto Sans Thai"';
+      ctx.fillStyle = IMG_COLORS.inkSoft;
+      const noteMax = IMG_PX - padX - colX[4];
+      wrapTextChars(ctx, r.note || '', colX[4], y, noteMax, rowH, 1);
+      y += rowH;
+    });
+  }
+
+  return canvas;
+}
+
+document.getElementById('exportWeeklyImgBtn').addEventListener('click', async ()=>{
+  if(!weeklyRows.length){ await appAlert('ยังไม่มีข้อมูลให้ส่งออก'); return; }
+  const startVal = document.getElementById('weeklyExportStart').value;
+  const endVal = document.getElementById('weeklyExportEnd').value;
+  let rows = weeklyRows, rangeLabel = new Date().toLocaleDateString('th-TH');
+  let noMatchWarning = false;
+  if(startVal || endVal){
+    if(startVal && endVal && startVal > endVal){ await appAlert('วันที่เริ่มต้องไม่เกินวันสุดท้าย'); return; }
+    const filtered = weeklyRows.filter(r=> r.date && (!startVal || r.date >= startVal) && (!endVal || r.date <= endVal));
+    const startLabel = startVal ? formatThaiDateFromKey(startVal) : '…';
+    const endLabel = endVal ? formatThaiDateFromKey(endVal) : '…';
+    if(filtered.length){
+      rows = filtered;
+      rangeLabel = `ช่วงวันที่: ${startLabel} – ${endLabel}`;
+    } else {
+      noMatchWarning = true;
+      rangeLabel = `ไม่พบแถวที่มี "วันที่" อยู่ในช่วง ${startLabel} – ${endLabel} (แสดงทุกแถวแทน)`;
+    }
+  }
+  await ensureFonts();
+  const canvas = drawWeeklyCanvas(rows, rangeLabel);
+  downloadCanvasAsJpeg(canvas, `สรุปรายสัปดาห์-${timestamp()}.jpg`);
+  toast(noMatchWarning ? 'ไม่พบแถวในช่วงวันที่ที่เลือก — ส่งออกทุกแถวแทน (ลองกรอกช่อง "วันที่" ในตารางก่อน)' : 'ส่งออกรูปสรุปแล้ว');
+});
+
+/* ---------- สมุดเขียนแผนเพื่อการเรียนพื้นฐาน (timeframe plan sheet) ---------- */
 const PLAN_TF_CONFIG = [
-  { key:'month', name:'Month' },
-  { key:'week',  name:'Week' },
-  { key:'day',   name:'Day' },
-  { key:'h4',    name:'H4' },
-  { key:'h1',    name:'H1' },
-  { key:'m15',   name:'M15' },
-  { key:'m5',    name:'M5' },
+  {key:'MN', rows:1},
+  {key:'WEEK', rows:1},
+  {key:'DAY', rows:1},
+  {key:'H4', rows:1},
+  {key:'H1', rows:1}
 ];
 
-let customPaTypes = ['Engulfing', 'Pinbar', 'Doji', 'Breakout'];
-let customAthValues = ['2000', '2100', '2500', '3000'];
+const TF_AUTOCALC = {
+  MN:   {tp1:500, tp2:850, tp3:1000},
+  WEEK: {tp1:150, tp2:300},
+  DAY:  {tp1:50,  tp2:100},
+  H4:   {tp1:15,  tp2:30},
+  H1:   {tp1:10}
+};
+function isAutoCalcTp(tfKey, n){
+  return !!(TF_AUTOCALC[tfKey] && TF_AUTOCALC[tfKey]['tp'+n] !== undefined);
+}
+
+function round2(n){ return Math.round((n + Number.EPSILON) * 100) / 100; }
+
+const CYCLE_STATES = ['SIG','TP','พักตัว','SW','ว่าง'];
+function nextCycleState(current){
+  const idx = CYCLE_STATES.indexOf(current);
+  return CYCLE_STATES[(idx + 1) % CYCLE_STATES.length];
+}
+
+function newPlanRow(){
+  return {pa:'', paDir:'buy', pasl:'', check:'', checkTag:'OM', tp1chk:false, tp1val:'', tp2chk:false, tp2val:'', tp3chk:false, tp3val:''};
+}
 
 function defaultPlanData(){
-  return {
-    meta: {
-      high:'', mid:'', low:'', ath:'', weekNo:'', vanTee:'', hour:'00', minute:'00'
-    },
-    tf: {
-      month: [], week: [], day: [], h4: [], h1: [], m15: [], m5: []
-    },
-    notes: {
-      month: { viewpoint:'', cycleNote:'', checkTag:false },
-      week:  { viewpoint:'', cycleNote:'', checkTag:false },
-      day:   { viewpoint:'', cycleNote:'', checkTag:false },
-      h4:    { viewpoint:'', cycleNote:'', checkTag:false },
-      h1:    { viewpoint:'', cycleNote:'', checkTag:false },
-      m15:   { viewpoint:'', cycleNote:'', checkTag:false },
-      m5:    { viewpoint:'', cycleNote:'', checkTag:false }
-    }
-  };
+  const tf = {}, notes = {};
+  PLAN_TF_CONFIG.forEach(cfg=>{
+    tf[cfg.key] = Array.from({length:cfg.rows}, ()=>newPlanRow());
+    notes[cfg.key] = {trend:'buy', strength:'buy', cycle:'SIG', cycleNote:'', viewpoint:''};
+  });
+  return {meta:{frameHigh:'', frameMid:'', frameLow:'', ath:'', weekNo:'', vanTee:'', time:''}, tf, notes};
 }
 
 let planData = defaultPlanData();
-let planHistory = [];
 
-async function loadPlanData(){
-  try{
-    const p = localStorage.getItem(STORAGE_PREFIX + 'planData');
-    if(p) planData = JSON.parse(p);
-  }catch(e){ planData = defaultPlanData(); }
-
-  try{
-    const pa = localStorage.getItem(STORAGE_PREFIX + 'customPaTypes');
-    if(pa) customPaTypes = JSON.parse(pa);
-  }catch(e){}
-
-  try{
-    const ath = localStorage.getItem(STORAGE_PREFIX + 'customAthValues');
-    if(ath) customAthValues = JSON.parse(ath);
-  }catch(e){}
-
-  initPlanSelects();
-  fillPlanMetaInputs();
-  renderPlanForm();
+function savePlanForm(){
+  try{ localStorage.setItem(STORAGE_PREFIX + 'planForm', JSON.stringify(planData)); }catch(e){}
 }
 
-async function savePlanData(){
+const ATH_LEVELS_DEFAULT = [3387.00,3443.40,3472.40,3500.00,3549.60,3578.60,3600.00,3622.60,3646.40,3674.60,3699.50,3728.30,3791.10,3831.30,3895.30,3949.60,3977.40,4049.50,4085.20,4180.00,4218.20,4247.50,4380.10,4420.53,4497.83,4525.96,4550.22,4601.30,4630.25,4690.70,4737.42,4888.30,4967.52,5111.14,5311.51,5595.33];
+
+let athLevels = [];
+
+function loadAthLevels(){
   try{
-    localStorage.setItem(STORAGE_PREFIX + 'planData', JSON.stringify(planData));
-    toast('บันทึกแผนแล้ว');
-  }catch(e){ console.error('save plan failed', e); }
+    const saved = localStorage.getItem(STORAGE_PREFIX + 'athLevels');
+    athLevels = saved ? JSON.parse(saved) : ATH_LEVELS_DEFAULT.slice();
+    if(!Array.isArray(athLevels) || athLevels.length === 0) athLevels = ATH_LEVELS_DEFAULT.slice();
+  }catch(e){ athLevels = ATH_LEVELS_DEFAULT.slice(); }
 }
 
-async function loadPlanHistory(){
-  try{
-    const ph = localStorage.getItem(STORAGE_PREFIX + 'planHistory');
-    planHistory = ph ? JSON.parse(ph) : [];
-  }catch(e){ planHistory = []; }
+function saveAthLevels(){
+  try{ localStorage.setItem(STORAGE_PREFIX + 'athLevels', JSON.stringify(athLevels)); }catch(e){}
 }
 
-async function savePlanHistory(){
+const PA_TYPE_DEFAULT = ['P1','P2','P3','Pin bar'];
+let paTypes = [];
+
+function loadPaTypes(){
   try{
-    localStorage.setItem(STORAGE_PREFIX + 'planHistory', JSON.stringify(planHistory));
-  }catch(e){ console.error('save plan history failed', e); }
+    const saved = localStorage.getItem(STORAGE_PREFIX + 'paTypes');
+    paTypes = saved ? JSON.parse(saved) : PA_TYPE_DEFAULT.slice();
+    if(!Array.isArray(paTypes) || paTypes.length === 0) paTypes = PA_TYPE_DEFAULT.slice();
+  }catch(e){ paTypes = PA_TYPE_DEFAULT.slice(); }
 }
 
-function initPlanSelects(){
-  const hourSel = document.getElementById('planTimeHour');
-  hourSel.innerHTML = '';
-  for(let i=0; i<24; i++){
+function savePaTypes(){
+  try{ localStorage.setItem(STORAGE_PREFIX + 'paTypes', JSON.stringify(paTypes)); }catch(e){}
+}
+
+function renderPaTypeOptionsHtml(selected){
+  let html = `<option value="">--</option>`;
+  paTypes.forEach(v=>{
+    html += `<option value="${escapeAttr(v)}" ${v===selected?'selected':''}>${escapeHtml(v)}</option>`;
+  });
+  return html;
+}
+
+function renderAthOptions(selectedValue){
+  const sel = document.getElementById('planAth');
+  const current = selectedValue !== undefined ? selectedValue : sel.value;
+  sel.innerHTML = '';
+  const blankOpt = document.createElement('option');
+  blankOpt.value = '';
+  blankOpt.textContent = '-- เลือก ATH --';
+  sel.appendChild(blankOpt);
+  athLevels.slice().sort((a,b)=>a-b).forEach(v=>{
     const opt = document.createElement('option');
-    opt.value = pad2(i);
-    opt.textContent = pad2(i);
+    opt.value = String(v);
+    opt.textContent = v.toFixed(2);
+    sel.appendChild(opt);
+  });
+  sel.value = current || '';
+}
+
+function populateTimeSelects(){
+  const hourSel = document.getElementById('planTimeHour');
+  const minSel = document.getElementById('planTimeMinute');
+  const blankH = document.createElement('option');
+  blankH.value = ''; blankH.textContent = '--';
+  hourSel.appendChild(blankH);
+  for(let h=0; h<24; h++){
+    const opt = document.createElement('option');
+    opt.value = String(h).padStart(2,'0');
+    opt.textContent = String(h).padStart(2,'0');
     hourSel.appendChild(opt);
   }
-
-  const minSel = document.getElementById('planTimeMinute');
-  minSel.innerHTML = '';
-  for(let i=0; i<60; i+=5){
+  const blankM = document.createElement('option');
+  blankM.value = ''; blankM.textContent = '--';
+  minSel.appendChild(blankM);
+  for(let m=0; m<60; m++){
     const opt = document.createElement('option');
-    opt.value = pad2(i);
-    opt.textContent = pad2(i);
+    opt.value = String(m).padStart(2,'0');
+    opt.textContent = String(m).padStart(2,'0');
     minSel.appendChild(opt);
   }
-
-  renderAthSelect();
 }
-
-function renderAthSelect(){
-  const athSel = document.getElementById('planAth');
-  athSel.innerHTML = '<option value="">-- เลือก ATH --</option>';
-  customAthValues.forEach(v=>{
-    const opt = document.createElement('option');
-    opt.value = v;
-    opt.textContent = v;
-    athSel.appendChild(opt);
-  });
-  athSel.value = planData.meta.ath || '';
-}
-
-document.getElementById('planAthAddBtn').addEventListener('click', async ()=>{
-  const val = await appPrompt('ใส่ตัวเลข ATH ใหม่:');
-  if(val && !customAthValues.includes(val)){
-    customAthValues.push(val);
-    localStorage.setItem(STORAGE_PREFIX + 'customAthValues', JSON.stringify(customAthValues));
-    renderAthSelect();
-    document.getElementById('planAth').value = val;
-    planData.meta.ath = val;
-    savePlanData();
-  }
-});
+populateTimeSelects();
 
 function fillPlanMetaInputs(){
-  document.getElementById('planFrameHigh').value = planData.meta.high || '';
-  document.getElementById('planFrameMid').value = planData.meta.mid || '';
-  document.getElementById('planFrameLow').value = planData.meta.low || '';
-  document.getElementById('planAth').value = planData.meta.ath || '';
-  document.getElementById('planWeekNo').value = planData.meta.weekNo || '';
-  document.getElementById('planVanTee').value = planData.meta.vanTee || '';
-  document.getElementById('planTimeHour').value = planData.meta.hour || '00';
-  document.getElementById('planTimeMinute').value = planData.meta.minute || '00';
+  document.getElementById('planFrameHigh').value = planData.meta.frameHigh;
+  document.getElementById('planFrameMid').value = planData.meta.frameMid;
+  document.getElementById('planFrameLow').value = planData.meta.frameLow;
+  refreshNumClass(document.getElementById('planFrameHigh'), planData.meta.frameHigh);
+  refreshNumClass(document.getElementById('planFrameMid'), planData.meta.frameMid);
+  refreshNumClass(document.getElementById('planFrameLow'), planData.meta.frameLow);
+  const athVal = planData.meta.ath;
+  if(athVal !== ''){
+    const num = parseFloat(athVal);
+    if(!isNaN(num) && !athLevels.includes(num)){
+      athLevels.push(num);
+      saveAthLevels();
+    }
+  }
+  renderAthOptions(athVal);
+  refreshNumClass(document.getElementById('planAth'), athVal);
+  document.getElementById('planWeekNo').value = planData.meta.weekNo;
+  document.getElementById('planVanTee').value = planData.meta.vanTee;
+  const [hh, mm] = (planData.meta.time || '').split(':');
+  document.getElementById('planTimeHour').value = hh || '';
+  document.getElementById('planTimeMinute').value = mm || '';
 }
 
 document.getElementById('planFrameMid').addEventListener('input', e=>{
-  const mid = parseFloat(e.target.value);
+  const midStr = e.target.value;
+  const mid = parseFloat(midStr);
+  planData.meta.frameMid = midStr;
   if(!isNaN(mid)){
-    const high = (mid + 50).toFixed(2);
-    const low = (mid - 50).toFixed(2);
-    document.getElementById('planFrameHigh').value = high;
-    document.getElementById('planFrameLow').value = low;
-    planData.meta.high = high;
-    planData.meta.mid = e.target.value;
-    planData.meta.low = low;
+    planData.meta.frameHigh = String(round2(mid + 5));
+    planData.meta.frameLow = String(round2(mid - 5));
   } else {
-    document.getElementById('planFrameHigh').value = '';
-    document.getElementById('planFrameLow').value = '';
-    planData.meta.high = '';
-    planData.meta.mid = '';
-    planData.meta.low = '';
+    planData.meta.frameHigh = '';
+    planData.meta.frameLow = '';
   }
-  savePlanData();
+  document.getElementById('planFrameHigh').value = planData.meta.frameHigh;
+  document.getElementById('planFrameLow').value = planData.meta.frameLow;
+  refreshNumClass(e.target, planData.meta.frameMid);
+  refreshNumClass(document.getElementById('planFrameHigh'), planData.meta.frameHigh);
+  refreshNumClass(document.getElementById('planFrameLow'), planData.meta.frameLow);
+  savePlanForm();
 });
 
-['planAth','planWeekNo','planVanTee','planTimeHour','planTimeMinute'].forEach(id=>{
-  document.getElementById(id).addEventListener('change', e=>{
-    const fieldMap = { planAth:'ath', planWeekNo:'weekNo', planVanTee:'vanTee', planTimeHour:'hour', planTimeMinute:'minute' };
-    planData.meta[fieldMap[id]] = e.target.value;
-    savePlanData();
+const PLAN_META_MAP = {planAth:'ath', planWeekNo:'weekNo', planVanTee:'vanTee'};
+Object.keys(PLAN_META_MAP).forEach(id=>{
+  document.getElementById(id).addEventListener('input', e=>{
+    planData.meta[PLAN_META_MAP[id]] = e.target.value;
+    savePlanForm();
   });
 });
+document.getElementById('planAth').addEventListener('change', e=>{
+  planData.meta.ath = e.target.value;
+  refreshNumClass(e.target, e.target.value);
+  savePlanForm();
+});
 
-function newPlanRow(){
-  return { dir:'BUY', paType:'', high:'', low:'', tp1Check:false, tp1:'', tp2Check:false, tp2:'', tp3Check:false, tp3:'' };
+function updatePlanTimeMeta(){
+  const hh = document.getElementById('planTimeHour').value;
+  const mm = document.getElementById('planTimeMinute').value;
+  planData.meta.time = (hh && mm) ? `${hh}:${mm}` : '';
+  savePlanForm();
+}
+document.getElementById('planTimeHour').addEventListener('change', updatePlanTimeMeta);
+document.getElementById('planTimeMinute').addEventListener('change', updatePlanTimeMeta);
+
+document.getElementById('planAthAddBtn').addEventListener('click', async ()=>{
+  const input = await appPrompt('กรอกตัวเลข ATH (Drawdown) ที่ต้องการเพิ่ม:');
+  if(input === null) return;
+  const num = parseFloat(input.replace(/,/g,'').trim());
+  if(isNaN(num)){
+    await appAlert('กรุณากรอกตัวเลขให้ถูกต้อง');
+    return;
+  }
+  if(!athLevels.includes(num)) athLevels.push(num);
+  saveAthLevels();
+  planData.meta.ath = String(num);
+  renderAthOptions(String(num));
+  savePlanForm();
+});
+
+function paDirLabel(dir){
+  return dir === 'sell' ? 'SELL' : (dir === 'none' ? 'ไม่มี' : 'BUY');
+}
+function paDirClass(dir){
+  return dir === 'sell' ? 'pa-sell' : (dir === 'none' ? 'pa-none' : 'pa-buy');
+}
+function nextPaDir(dir){
+  if(dir === 'buy' || !dir) return 'sell';
+  if(dir === 'sell') return 'none';
+  return 'buy';
 }
 
 function renderPlanForm(){
   const container = document.getElementById('planTfContainer');
   container.innerHTML = '';
-
   PLAN_TF_CONFIG.forEach(cfg=>{
-    const tfKey = cfg.key;
     const block = document.createElement('div');
     block.className = 'plan-tf-block';
-
     let rowsHtml = '';
-    const rows = planData.tf[tfKey] || [];
-    rows.forEach((r, idx)=>{
+    planData.tf[cfg.key].forEach((row, i)=>{
       rowsHtml += `
-        <div class="plan-row" data-tf="${tfKey}" data-idx="${idx}">
+        <div class="plan-row" data-tf="${cfg.key}" data-row="${i}">
           <div class="plan-row-head">
-            <span class="num">PA #${idx+1}</span>
-            <button type="button" class="plan-row-del" title="ลบหัวข้อนี้">✕</button>
+            <span class="num">ชุดที่ ${i+1}</span>
+            <button type="button" class="plan-row-del" data-tf="${cfg.key}" data-row="${i}" title="ลบชุดนี้">✕</button>
           </div>
           <div class="plan-row-fields">
+            <span class="plan-label">PA</span>
             <div class="plan-pa-group">
-              <button type="button" class="toggle-buysell ${r.dir==='BUY'?'pa-buy':r.dir==='SELL'?'pa-sell':'pa-none'}">${r.dir||'BUY'}</button>
-              <select class="pd-pa-type">
-                <option value="">-- PA Type --</option>
-                ${customPaTypes.map(t=>`<option value="${escapeAttr(t)}" ${r.paType===t?'selected':''}>${escapeHtml(t)}</option>`).join('')}
-              </select>
-              <button type="button" class="pd-pa-type-add" title="เพิ่มประเภท PA">+</button>
+              <button type="button" class="toggle-buysell pd-pa-dir ${paDirClass(row.paDir)}">${paDirLabel(row.paDir)}</button>
+              <select class="pd-pa-type">${renderPaTypeOptionsHtml(row.pa)}</select>
+              <button type="button" class="pd-pa-type-add" title="เพิ่มตัวเลือก PA">+</button>
             </div>
-            <div style="display:flex; align-items:center; gap:6px; flex:1 1 200px;">
-              <span class="plan-label">H:</span>
-              <input type="text" class="pd-high mono" placeholder="ราคา High" value="${escapeAttr(r.high||'')}">
-              <span class="plan-label">L:</span>
-              <input type="text" class="pd-low mono" placeholder="ราคา Low" value="${escapeAttr(r.low||'')}">
-            </div>
+            <span class="plan-label">PASL</span><input type="text" inputmode="decimal" class="pd-pasl" value="${escapeAttr(row.pasl)}">
+            <span class="plan-label">จุดเช็ค</span>
+            <button type="button" class="pd-check-tag ${row.checkTag==='มี'?'tag-active':''}">${row.checkTag==='มี'?'มี':'OM'}</button>
+            <input type="text" inputmode="decimal" class="pd-check" value="${escapeAttr(row.check)}">
           </div>
           <div class="plan-row-tps">
-            <div class="plan-tp">
-              <input type="checkbox" class="pd-tp1-ck" ${r.tp1Check?'checked':''}>
-              <span>TP1:</span>
-              <input type="text" class="pd-tp1 mono" value="${escapeAttr(r.tp1||'')}" placeholder="TP1">
-            </div>
-            <div class="plan-tp">
-              <input type="checkbox" class="pd-tp2-ck" ${r.tp2Check?'checked':''}>
-              <span>TP2:</span>
-              <input type="text" class="pd-tp2 mono" value="${escapeAttr(r.tp2||'')}" placeholder="TP2">
-            </div>
-            <div class="plan-tp">
-              <input type="checkbox" class="pd-tp3-ck" ${r.tp3Check?'checked':''}>
-              <span>TP3:</span>
-              <input type="text" class="pd-tp3 mono auto" readonly value="${escapeAttr(r.tp3||'')}" placeholder="อัตโนมัติ">
-            </div>
+            <label class="plan-tp"><input type="checkbox" class="pd-tp1chk" ${row.tp1chk?'checked':''}>TP1</label><input type="text" inputmode="decimal" class="pd-tp1val${isAutoCalcTp(cfg.key,1)?' auto':''}" value="${escapeAttr(row.tp1val)}" ${isAutoCalcTp(cfg.key,1)?'readonly':''}>
+            <label class="plan-tp"><input type="checkbox" class="pd-tp2chk" ${row.tp2chk?'checked':''}>TP2</label><input type="text" inputmode="decimal" class="pd-tp2val${isAutoCalcTp(cfg.key,2)?' auto':''}" value="${escapeAttr(row.tp2val)}" ${isAutoCalcTp(cfg.key,2)?'readonly':''}>
+            ${cfg.key==='MN' ? `<label class="plan-tp"><input type="checkbox" class="pd-tp3chk" ${row.tp3chk?'checked':''}>TP3</label><input type="text" inputmode="decimal" class="pd-tp3val auto" value="${escapeAttr(row.tp3val)}" readonly>` : ''}
           </div>
         </div>
       `;
     });
-
-    const note = planData.notes[tfKey] || { viewpoint:'', cycleNote:'', checkTag:false };
-
+    const note = planData.notes[cfg.key];
     block.innerHTML = `
-      <div class="plan-tf-title">${cfg.name}</div>
-      <div class="plan-rows-list">${rowsHtml}</div>
-      <button type="button" class="add-rule-btn plan-add-row-btn" data-tf="${tfKey}">+ เพิ่ม PA ใน ${cfg.name}</button>
-
-      <div class="plan-viewpoint">
-        <label>มุมมอง / บันทึกเพิ่มเติม (${cfg.name}):</label>
-        <textarea class="pd-viewpoint" data-tf="${tfKey}">${escapeHtml(note.viewpoint||'')}</textarea>
-      </div>
-
-      <div class="plan-note-box" style="margin-top:12px;">
+      <div class="plan-tf-title">${cfg.key}</div>
+      <div class="plan-note-box" data-tf="${cfg.key}">
         <div class="plan-note-row">
-          <div class="plan-note-field plan-note-cycle-note-field">
-            <label>รอบการเล่น:</label>
-            <input type="text" class="pd-cycle-note" data-tf="${tfKey}" placeholder="เช่น รอบลอนดอน" value="${escapeAttr(note.cycleNote||'')}">
-          </div>
-          <button type="button" class="pd-check-tag ${note.checkTag?'tag-active':''}" data-tf="${tfKey}">✔ ตรวจแล้ว</button>
+          <div class="plan-note-field"><label>เทรนด์</label><button type="button" class="toggle-buysell pd-note-trend-btn ${note.trend==='sell'?'pa-sell':'pa-buy'}">${note.trend==='sell'?'SELL':'BUY'}</button></div>
+          <div class="plan-note-field"><label>แรง</label><button type="button" class="toggle-buysell pd-note-strength-btn ${note.strength==='sell'?'pa-sell':'pa-buy'}">${note.strength==='sell'?'SELL':'BUY'}</button></div>
+          <div class="plan-note-field"><label>วงจร</label><button type="button" class="pd-note-cycle-btn">${note.cycle||'SIG'}</button></div>
+          <div class="plan-note-field plan-note-cycle-note-field"><input type="text" class="pd-note-cycle-note" placeholder="บันทึกเพิ่มเติม..." value="${escapeAttr(note.cycleNote)}"></div>
         </div>
       </div>
+      <div class="plan-rows" data-tf="${cfg.key}">${rowsHtml}</div>
+      <button type="button" class="add-rule-btn plan-add-row-btn" data-tf="${cfg.key}">+ เพิ่มชุด PA</button>
+      <div class="plan-viewpoint" data-tf="${cfg.key}">
+        <label>มุมมอง</label>
+        <textarea class="pd-viewpoint" rows="2" placeholder="มุมมองรวมของ ${cfg.key}...">${escapeHtml(note.viewpoint)}</textarea>
+      </div>
     `;
-
     container.appendChild(block);
   });
-
-  bindPlanEvents();
 }
 
-function bindPlanEvents(){
-  document.querySelectorAll('.plan-add-row-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const tf = btn.dataset.tf;
-      if(!planData.tf[tf]) planData.tf[tf] = [];
-      planData.tf[tf].push(newPlanRow());
-      savePlanData();
-      renderPlanForm();
-    });
-  });
+function refreshNumClass(el, val){
+  if(!el) return;
+  el.classList.remove('num-pos','num-neg');
+}
 
-  document.querySelectorAll('.plan-row').forEach(rowEl=>{
+function applyAutoCalc(tf, row, rowEl){
+  const calc = TF_AUTOCALC[tf];
+  if(!calc) return;
+  const checkNum = parseFloat(row.check);
+  const sign = row.paDir === 'sell' ? -1 : 1;
+  ['tp1','tp2','tp3'].forEach(k=>{
+    if(calc[k] === undefined) return;
+    const valKey = k + 'val';
+    row[valKey] = !isNaN(checkNum) ? String(round2(checkNum + sign*calc[k])) : '';
+    const el = rowEl.querySelector('.pd-' + valKey);
+    if(el){ el.value = row[valKey]; refreshNumClass(el, row[valKey]); }
+  });
+}
+
+document.getElementById('planTfContainer').addEventListener('input', e=>{
+  const rowEl = e.target.closest('.plan-row');
+  if(rowEl){
     const tf = rowEl.dataset.tf;
-    const idx = +rowEl.dataset.idx;
-    const item = planData.tf[tf][idx];
-
-    rowEl.querySelector('.plan-row-del').addEventListener('click', ()=>{
-      planData.tf[tf].splice(idx, 1);
-      savePlanData();
-      renderPlanForm();
-    });
-
-    const dirBtn = rowEl.querySelector('.toggle-buysell');
-    dirBtn.addEventListener('click', ()=>{
-      const dirs = ['BUY','SELL','NONE'];
-      const next = dirs[(dirs.indexOf(item.dir) + 1) % dirs.length];
-      item.dir = next;
-      savePlanData();
-      renderPlanForm();
-    });
-
-    const paSel = rowEl.querySelector('.pd-pa-type');
-    paSel.addEventListener('change', e=>{
-      item.paType = e.target.value;
-      savePlanData();
-    });
-
-    rowEl.querySelector('.pd-pa-type-add').addEventListener('click', async ()=>{
-      const newType = await appPrompt('เพิ่มประเภท PA ใหม่:');
-      if(newType && !customPaTypes.includes(newType)){
-        customPaTypes.push(newType);
-        localStorage.setItem(STORAGE_PREFIX + 'customPaTypes', JSON.stringify(customPaTypes));
-        item.paType = newType;
-        savePlanData();
-        renderPlanForm();
-      }
-    });
-
-    const highInp = rowEl.querySelector('.pd-high');
-    const lowInp = rowEl.querySelector('.pd-low');
-
-    function calcTp3(){
-      const h = parseFloat(item.high);
-      const l = parseFloat(item.low);
-      if(!isNaN(h) && !isNaN(l)){
-        const diff = Math.abs(h - l);
-        item.tp3 = item.dir === 'SELL' ? (l - diff).toFixed(2) : (h + diff).toFixed(2);
-      } else {
-        item.tp3 = '';
-      }
+    const row = planData.tf[tf][+rowEl.dataset.row];
+    if(e.target.classList.contains('pd-pasl')){ row.pasl = e.target.value; refreshNumClass(e.target, row.pasl); }
+    else if(e.target.classList.contains('pd-check')){
+      row.check = e.target.value;
+      refreshNumClass(e.target, row.check);
+      applyAutoCalc(tf, row, rowEl);
     }
-
-    highInp.addEventListener('input', e=>{
-      item.high = e.target.value;
-      calcTp3();
-      savePlanData();
-      const tp3Inp = rowEl.querySelector('.pd-tp3');
-      if(tp3Inp) tp3Inp.value = item.tp3;
-    });
-
-    lowInp.addEventListener('input', e=>{
-      item.low = e.target.value;
-      calcTp3();
-      savePlanData();
-      const tp3Inp = rowEl.querySelector('.pd-tp3');
-      if(tp3Inp) tp3Inp.value = item.tp3;
-    });
-
-    rowEl.querySelector('.pd-tp1-ck').addEventListener('change', e=>{ item.tp1Check = e.target.checked; savePlanData(); });
-    rowEl.querySelector('.pd-tp1').addEventListener('input', e=>{ item.tp1 = e.target.value; savePlanData(); });
-    rowEl.querySelector('.pd-tp2-ck').addEventListener('change', e=>{ item.tp2Check = e.target.checked; savePlanData(); });
-    rowEl.querySelector('.pd-tp2').addEventListener('input', e=>{ item.tp2 = e.target.value; savePlanData(); });
-    rowEl.querySelector('.pd-tp3-ck').addEventListener('change', e=>{ item.tp3Check = e.target.checked; savePlanData(); });
-  });
-
-  document.querySelectorAll('.pd-viewpoint').forEach(ta=>{
-    ta.addEventListener('input', e=>{
-      const tf = e.target.dataset.tf;
-      if(!planData.notes[tf]) planData.notes[tf] = {};
-      planData.notes[tf].viewpoint = e.target.value;
-      savePlanData();
-    });
-  });
-
-  document.querySelectorAll('.pd-cycle-note').forEach(inp=>{
-    inp.addEventListener('input', e=>{
-      const tf = e.target.dataset.tf;
-      if(!planData.notes[tf]) planData.notes[tf] = {};
-      planData.notes[tf].cycleNote = e.target.value;
-      savePlanData();
-    });
-  });
-
-  document.querySelectorAll('.pd-check-tag').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const tf = btn.dataset.tf;
-      if(!planData.notes[tf]) planData.notes[tf] = {};
-      planData.notes[tf].checkTag = !planData.notes[tf].checkTag;
-      savePlanData();
-      renderPlanForm();
-    });
-  });
-}
-
-document.getElementById('planClearBtn').addEventListener('click', async ()=>{
-  if(await appConfirm('ล้างฟอร์มแผนการเทรดทั้งหมดใช่หรือไม่?')){
-    planData = defaultPlanData();
-    await savePlanData();
-    fillPlanMetaInputs();
+    else if(e.target.classList.contains('pd-tp1val') && !isAutoCalcTp(tf,1)){ row.tp1val = e.target.value; refreshNumClass(e.target, row.tp1val); }
+    else if(e.target.classList.contains('pd-tp2val') && !isAutoCalcTp(tf,2)){ row.tp2val = e.target.value; refreshNumClass(e.target, row.tp2val); }
+    else if(e.target.classList.contains('pd-tp3val') && !isAutoCalcTp(tf,3)){ row.tp3val = e.target.value; refreshNumClass(e.target, row.tp3val); }
+    savePlanForm();
+    return;
+  }
+  const noteEl = e.target.closest('.plan-note-box');
+  if(noteEl && e.target.classList.contains('pd-note-cycle-note')){
+    planData.notes[noteEl.dataset.tf].cycleNote = e.target.value;
+    savePlanForm();
+    return;
+  }
+  const vpEl = e.target.closest('.plan-viewpoint');
+  if(vpEl && e.target.classList.contains('pd-viewpoint')){
+    planData.notes[vpEl.dataset.tf].viewpoint = e.target.value;
+    savePlanForm();
+  }
+});
+document.getElementById('planTfContainer').addEventListener('change', e=>{
+  const rowEl = e.target.closest('.plan-row');
+  if(!rowEl) return;
+  if(e.target.classList.contains('pd-tp1chk') || e.target.classList.contains('pd-tp2chk') || e.target.classList.contains('pd-tp3chk')){
+    const row = planData.tf[rowEl.dataset.tf][+rowEl.dataset.row];
+    if(e.target.classList.contains('pd-tp1chk')) row.tp1chk = e.target.checked;
+    else if(e.target.classList.contains('pd-tp2chk')) row.tp2chk = e.target.checked;
+    else row.tp3chk = e.target.checked;
+    savePlanForm();
+  } else if(e.target.classList.contains('pd-pa-type')){
+    const row = planData.tf[rowEl.dataset.tf][+rowEl.dataset.row];
+    row.pa = e.target.value;
+    savePlanForm();
+  }
+});
+document.getElementById('planTfContainer').addEventListener('click', async e=>{
+  const addBtn = e.target.closest('.plan-add-row-btn');
+  if(addBtn){
+    const tf = addBtn.dataset.tf;
+    planData.tf[tf].push(newPlanRow());
     renderPlanForm();
+    savePlanForm();
+    return;
+  }
+  const delBtn = e.target.closest('.plan-row-del');
+  if(delBtn){
+    const tf = delBtn.dataset.tf, idx = +delBtn.dataset.row;
+    if(planData.tf[tf].length <= 1){
+      await appAlert('ต้องมีอย่างน้อย 1 ชุด');
+      return;
+    }
+    planData.tf[tf].splice(idx, 1);
+    renderPlanForm();
+    savePlanForm();
+    return;
+  }
+  const paDirBtn = e.target.closest('.pd-pa-dir');
+  if(paDirBtn){
+    const rowEl = paDirBtn.closest('.plan-row');
+    const tf = rowEl.dataset.tf;
+    const row = planData.tf[tf][+rowEl.dataset.row];
+    row.paDir = nextPaDir(row.paDir);
+    paDirBtn.textContent = paDirLabel(row.paDir);
+    paDirBtn.classList.remove('pa-buy','pa-sell','pa-none');
+    paDirBtn.classList.add(paDirClass(row.paDir));
+    applyAutoCalc(tf, row, rowEl);
+    savePlanForm();
+    return;
+  }
+  const paAddBtn = e.target.closest('.pd-pa-type-add');
+  if(paAddBtn){
+    const rowEl = paAddBtn.closest('.plan-row');
+    const tf = rowEl.dataset.tf;
+    const row = planData.tf[tf][+rowEl.dataset.row];
+    const val = await appPrompt('เพิ่มตัวเลือก PA ใหม่:');
+    if(val === null) return;
+    const trimmed = val.trim();
+    if(!trimmed) return;
+    if(!paTypes.includes(trimmed)){
+      paTypes.push(trimmed);
+      savePaTypes();
+    }
+    row.pa = trimmed;
+    savePlanForm();
+    renderPlanForm();
+    return;
+  }
+  const checkTagBtn = e.target.closest('.pd-check-tag');
+  if(checkTagBtn){
+    const rowEl = checkTagBtn.closest('.plan-row');
+    const tf = rowEl.dataset.tf;
+    const row = planData.tf[tf][+rowEl.dataset.row];
+    row.checkTag = row.checkTag === 'มี' ? 'OM' : 'มี';
+    checkTagBtn.textContent = row.checkTag;
+    checkTagBtn.classList.toggle('tag-active', row.checkTag === 'มี');
+    savePlanForm();
+    return;
+  }
+  const trendBtn = e.target.closest('.pd-note-trend-btn');
+  if(trendBtn){
+    const noteEl = trendBtn.closest('.plan-note-box');
+    const note = planData.notes[noteEl.dataset.tf];
+    note.trend = note.trend === 'sell' ? 'buy' : 'sell';
+    trendBtn.textContent = note.trend === 'sell' ? 'SELL' : 'BUY';
+    trendBtn.classList.toggle('pa-buy', note.trend === 'buy');
+    trendBtn.classList.toggle('pa-sell', note.trend === 'sell');
+    savePlanForm();
+    return;
+  }
+  const strengthBtn = e.target.closest('.pd-note-strength-btn');
+  if(strengthBtn){
+    const noteEl = strengthBtn.closest('.plan-note-box');
+    const note = planData.notes[noteEl.dataset.tf];
+    note.strength = note.strength === 'sell' ? 'buy' : 'sell';
+    strengthBtn.textContent = note.strength === 'sell' ? 'SELL' : 'BUY';
+    strengthBtn.classList.toggle('pa-buy', note.strength === 'buy');
+    strengthBtn.classList.toggle('pa-sell', note.strength === 'sell');
+    savePlanForm();
+    return;
+  }
+  const cycleBtn = e.target.closest('.pd-note-cycle-btn');
+  if(cycleBtn){
+    const noteEl = cycleBtn.closest('.plan-note-box');
+    const note = planData.notes[noteEl.dataset.tf];
+    note.cycle = nextCycleState(note.cycle || 'SIG');
+    cycleBtn.textContent = note.cycle;
+    savePlanForm();
   }
 });
 
-document.getElementById('planSaveHistoryBtn').addEventListener('click', async ()=>{
-  const entry = {
-    id: Date.now(),
-    dateSaved: new Date().toISOString(),
-    title: `สัปดาห์ ${planData.meta.weekNo||'—'} (${planData.meta.vanTee||'—'})`,
-    data: JSON.parse(JSON.stringify(planData))
-  };
-  planHistory.unshift(entry);
-  await savePlanHistory();
-  toast('บันทึกลงประวัติเรียบร้อย');
+document.getElementById('planClearBtn').addEventListener('click', async ()=>{
+  if(!await appConfirm('ล้างข้อมูลในฟอร์มแผนทั้งหมด?')) return;
+  planData = defaultPlanData();
+  fillPlanMetaInputs();
+  renderPlanForm();
+  savePlanForm();
 });
+
+function loadPlanForm(){
+  try{
+    const saved = localStorage.getItem(STORAGE_PREFIX + 'planForm');
+    if(saved){
+      const parsed = JSON.parse(saved);
+      planData = defaultPlanData();
+      if(parsed.meta) Object.assign(planData.meta, parsed.meta);
+      PLAN_TF_CONFIG.forEach(cfg=>{
+        if(parsed.tf && Array.isArray(parsed.tf[cfg.key]) && parsed.tf[cfg.key].length){
+          planData.tf[cfg.key] = parsed.tf[cfg.key].map(saved=>{
+            const row = newPlanRow();
+            Object.assign(row, saved);
+            return row;
+          });
+        }
+        if(parsed.notes && parsed.notes[cfg.key]) Object.assign(planData.notes[cfg.key], parsed.notes[cfg.key]);
+      });
+      if(!localStorage.getItem(STORAGE_PREFIX + 'planRowsMigratedV1')){
+        PLAN_TF_CONFIG.forEach(cfg=>{
+          planData.tf[cfg.key] = planData.tf[cfg.key].slice(0, 1);
+        });
+        savePlanForm();
+      }
+    }
+    localStorage.setItem(STORAGE_PREFIX + 'planRowsMigratedV1', '1');
+  }catch(e){ planData = defaultPlanData(); }
+  fillPlanMetaInputs();
+  renderPlanForm();
+}
+
+function newJournalCanvasTall(height){
+  const canvas = document.createElement('canvas');
+  canvas.width = IMG_PX; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = IMG_COLORS.paper;
+  ctx.fillRect(0,0,IMG_PX,height);
+  ctx.strokeStyle = IMG_COLORS.line;
+  ctx.lineWidth = 1;
+  for(let y=40; y<height; y+=40){
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(IMG_PX,y); ctx.stroke();
+  }
+  ctx.fillStyle = IMG_COLORS.red;
+  ctx.fillRect(0,0,10,height);
+  ctx.textBaseline = 'alphabetic';
+  return {canvas, ctx};
+}
+
+function drawPlanCanvas(){
+  const padX = 50, maxW = IMG_PX - padX*2;
+  const rowH = 32, tfTitleH = 34, noteBoxH = 74, viewpointLineH = 15, viewpointGap = 14, blockGap = 26, headerH = 210, bottomPad = 50;
+
+  function viewpointLines(note){
+    return note.viewpoint ? note.viewpoint.split('\n').slice(0,4) : [];
+  }
+  function viewpointHeight(note){
+    const lines = viewpointLines(note);
+    return lines.length ? (lines.length*viewpointLineH + viewpointGap + 22) : 0;
+  }
+
+  let bodyH = 0;
+  PLAN_TF_CONFIG.forEach(cfg=>{
+    const rowsH = planData.tf[cfg.key].length * rowH;
+    const note = planData.notes[cfg.key];
+    bodyH += tfTitleH + noteBoxH + rowsH + viewpointHeight(note) + blockGap;
+  });
+  const totalHeight = headerH + bodyH + bottomPad;
+
+  const {canvas, ctx} = newJournalCanvasTall(totalHeight);
+  let y = 72;
+
+  ctx.fillStyle = IMG_COLORS.ink;
+  ctx.font = '600 32px "Noto Serif Thai"';
+  ctx.fillText('สมุดเขียนแผนเพื่อการเรียนพื้นฐาน', padX, y);
+  y += 40;
+
+  const m = planData.meta;
+  ctx.font = '400 18px "IBM Plex Mono"';
+  drawColoredLine(ctx, [
+    {text:'กรอบวัน: ', color:IMG_COLORS.inkSoft},
+    {text: m.frameHigh||'-', color: IMG_COLORS.inkSoft},
+    {text:' / ', color:IMG_COLORS.inkSoft},
+    {text: m.frameMid||'-', color: IMG_COLORS.inkSoft},
+    {text:' / ', color:IMG_COLORS.inkSoft},
+    {text: m.frameLow||'-', color: IMG_COLORS.inkSoft},
+    {text:'   ATH: ', color:IMG_COLORS.inkSoft},
+    {text: m.ath||'-', color: IMG_COLORS.inkSoft}
+  ], padX, y);
+  y += 26;
+  ctx.fillStyle = IMG_COLORS.inkSoft;
+  ctx.fillText(`สัปดาห์ที่: ${m.weekNo||'-'}   วันที่: ${m.vanTee||'-'}   เวลา: ${m.time||'-'}`, padX, y);
+  y += 34;
+
+  ctx.strokeStyle = IMG_COLORS.line;
+  ctx.beginPath(); ctx.moveTo(padX,y); ctx.lineTo(IMG_PX-padX,y); ctx.stroke();
+  y += 30;
+
+  PLAN_TF_CONFIG.forEach(cfg=>{
+    ctx.font = '700 20px "IBM Plex Mono"';
+    ctx.fillStyle = IMG_COLORS.red;
+    ctx.fillText(cfg.key, padX, y);
+    ctx.strokeStyle = IMG_COLORS.ink;
+    ctx.beginPath(); ctx.moveTo(padX, y+8); ctx.lineTo(IMG_PX-padX, y+8); ctx.stroke();
+    y += tfTitleH;
+
+    const note = planData.notes[cfg.key];
+    ctx.strokeStyle = IMG_COLORS.line;
+    ctx.strokeRect(padX, y, maxW, noteBoxH-16);
+    ctx.font = '400 16px "Noto Sans Thai"';
+    ctx.fillStyle = IMG_COLORS.inkSoft;
+    ctx.fillText(`เทรนด์ ${note.trend==='sell'?'SELL':'BUY'}    แรง ${note.strength==='sell'?'SELL':'BUY'}    วงจร ${note.cycle||'SIG'}${note.cycleNote?' ('+note.cycleNote+')':''}`, padX+10, y+30);
+    y += noteBoxH;
+
+    planData.tf[cfg.key].forEach((row, i)=>{
+      ctx.font = '400 16px "Noto Sans Thai"';
+      const tp1 = row.tp1chk ? '☑' : '☐';
+      const tp2 = row.tp2chk ? '☑' : '☐';
+      const paDirTxt = paDirLabel(row.paDir);
+      const checkTagLabel = row.checkTag === 'มี' ? 'มี' : 'OM';
+      const paDirColor = row.paDir==='sell' ? IMG_COLORS.loss : (row.paDir==='none' ? IMG_COLORS.be : IMG_COLORS.win);
+      const segs = [
+        {text:`${i+1}. PA `, color:IMG_COLORS.ink},
+        {text: paDirTxt, color: paDirColor},
+        {text:`/${row.pa||'-'}   PASL `, color:IMG_COLORS.ink},
+        {text: row.pasl||'-', color: IMG_COLORS.ink},
+        {text:`   จุดเช็ค [${checkTagLabel}] `, color:IMG_COLORS.ink},
+        {text: row.check||'-', color: IMG_COLORS.ink},
+        {text:`   ${tp1}TP1 `, color:IMG_COLORS.ink},
+        {text: row.tp1val||'', color: IMG_COLORS.ink},
+        {text:`   ${tp2}TP2 `, color:IMG_COLORS.ink},
+        {text: row.tp2val||'', color: IMG_COLORS.ink}
+      ];
+      if(cfg.key === 'MN'){
+        const tp3 = row.tp3chk ? '☑' : '☐';
+        segs.push({text:`   ${tp3}TP3 `, color:IMG_COLORS.ink});
+        segs.push({text: row.tp3val||'', color: IMG_COLORS.ink});
+      }
+      drawColoredLine(ctx, segs, padX, y);
+      y += rowH;
+    });
+
+    const vLines = viewpointLines(note);
+    if(vLines.length){
+      ctx.font = '700 15px "Noto Sans Thai"';
+      ctx.fillStyle = IMG_COLORS.red;
+      ctx.fillText('มุมมอง:', padX, y);
+      y += viewpointLineH + 4;
+      ctx.font = '400 14px "Noto Sans Thai"';
+      ctx.fillStyle = IMG_COLORS.inkSoft;
+      vLines.forEach(l=>{
+        ctx.fillText('· ' + l, padX+10, y);
+        y += viewpointLineH;
+      });
+      y += viewpointGap;
+    }
+
+    y += blockGap;
+  });
+
+  return canvas;
+}
 
 document.getElementById('planExportImgBtn').addEventListener('click', async ()=>{
   const canvas = await capturePlanCardScreenshot();
-  if(canvas){
-    downloadCanvasAsJpeg(canvas, `แผนการเทรด-${planData.meta.vanTee||timestamp()}.jpg`);
-  }
+  if(!canvas) return;
+  downloadCanvasAsJpeg(canvas, `แผนการเทรด-${timestamp()}.jpg`, true);
+  toast('ส่งออกรูปแผนแล้ว');
 });
+
+/* ---------- ประวัติแผนการเทรด (plan history) ---------- */
+let planHistory = [];
+
+function loadPlanHistory(){
+  try{
+    const saved = localStorage.getItem(STORAGE_PREFIX + 'planHistory');
+    planHistory = saved ? JSON.parse(saved) : [];
+    if(!Array.isArray(planHistory)) planHistory = [];
+  }catch(e){ planHistory = []; }
+}
+function savePlanHistoryList(){
+  try{ localStorage.setItem(STORAGE_PREFIX + 'planHistory', JSON.stringify(planHistory)); }catch(e){}
+}
+
+function drawPlanCanvasForData(data){
+  const backup = planData;
+  planData = data;
+  const canvas = drawPlanCanvas();
+  planData = backup;
+  return canvas;
+}
 
 function renderPlanHistory(){
   const list = document.getElementById('planHistoryList');
   list.innerHTML = '';
-
-  if(!planHistory.length){
-    list.innerHTML = `<div class="empty">ยังไม่มีประวัติแผนการเทรดที่บันทึกไว้</div>`;
+  const items = planHistory.slice().sort((a,b)=> (b.savedAt||'').localeCompare(a.savedAt||''));
+  if(!items.length){
+    list.innerHTML = `<div class="empty">ยังไม่มีประวัติแผนที่บันทึกไว้ — กด "บันทึกลงประวัติ" ในหน้าแผนการเทรดเพื่อเก็บไว้ดูย้อนหลัง</div>`;
     return;
   }
-
-  planHistory.forEach(entry=>{
+  items.forEach(entry=>{
+    const m = entry.data && entry.data.meta ? entry.data.meta : {};
+    const savedLabel = entry.savedAt ? new Date(entry.savedAt).toLocaleString('th-TH') : '—';
     const card = document.createElement('div');
     card.className = 'plan-history-card';
-    const d = entry.data.meta || {};
     card.innerHTML = `
       <div class="plan-history-top">
-        <span style="font-weight:700; font-size:18px;">${escapeHtml(entry.title)}</span>
-        <span class="plan-history-date">${formatDateShortThai(d.vanTee)} ${d.hour||'00'}:${d.minute||'00'}</span>
+        <span class="plan-history-date">บันทึกเมื่อ ${savedLabel}</span>
       </div>
       <div class="plan-history-grid">
-        <div><span class="k">กรอบวัน (Mid)</span><span class="v">${d.mid||'—'}</span></div>
-        <div><span class="k">ATH</span><span class="v">${d.ath||'—'}</span></div>
-        <div><span class="k">แนวต้าน</span><span class="v">${d.high||'—'}</span></div>
-        <div><span class="k">แนวรับ</span><span class="v">${d.low||'—'}</span></div>
+        <div><span class="k">วันที่ของแผน</span><span class="v">${m.vanTee || '—'}</span></div>
+        <div><span class="k">สัปดาห์ที่</span><span class="v">${m.weekNo || '—'}</span></div>
+        <div><span class="k">แนวต้าน/แนวรับ</span><span class="v">${(m.frameHigh||'—')} / ${(m.frameLow||'—')}</span></div>
+        <div><span class="k">ATH</span><span class="v">${m.ath || '—'}</span></div>
       </div>
       <div class="plan-history-actions">
-        <button class="icon-btn" data-img="${entry.id}" title="ส่งออกเป็นรูปภาพ">📷</button>
-        <button class="icon-btn" data-load="${entry.id}" title="ดึงมาใช้งาน">↩</button>
-        <button class="icon-btn" data-del="${entry.id}" title="ลบ">🗑</button>
+        <button type="button" class="icon-btn" data-view="${entry.id}" title="ดูรูปแผน">📷</button>
+        <button type="button" class="icon-btn" data-export="${entry.id}" title="ส่งออกภาพ">⬇</button>
+        <button type="button" class="icon-btn" data-load="${entry.id}" title="โหลดกลับมาแก้ไข">✎</button>
+        <button type="button" class="icon-btn" data-del="${entry.id}" title="ลบ">🗑</button>
       </div>
     `;
-
-    card.querySelector('[data-img]').addEventListener('click', async ()=>{
-      const canvas = await capturePlanHistoryEntryScreenshot(entry);
-      if(canvas){
-        downloadCanvasAsJpeg(canvas, `ประวัติแผน-${d.vanTee||entry.id}.jpg`);
-      }
-    });
-
-    card.querySelector('[data-load]').addEventListener('click', async ()=>{
-      if(await appConfirm('ต้องการโหลดแผนนี้มาที่หน้าเขียนแผนใช่หรือไม่? (ข้อมูลปัจจุบันจะถูกเขียนทับ)')){
-        planData = JSON.parse(JSON.stringify(entry.data));
-        await savePlanData();
-        fillPlanMetaInputs();
-        renderPlanForm();
-        toast('โหลดแผนมาใช้งานแล้ว');
-        document.querySelector('[data-page="plan"]').click();
-      }
-    });
-
-    card.querySelector('[data-del]').addEventListener('click', async ()=>{
-      if(await appConfirm('ลบประวัติแผนนี้ใช่หรือไม่?')){
-        planHistory = planHistory.filter(p=>p.id!==entry.id);
-        await savePlanHistory();
-        renderPlanHistory();
-      }
-    });
-
     list.appendChild(card);
   });
 }
 
-/* ---------- Initial Kickoff ---------- */
-window.addEventListener('DOMContentLoaded', loadAll);
+async function planHistoryLoadEntry(id){
+  const entry = planHistory.find(x=>x.id === id);
+  if(!entry) return;
+  if(!await appConfirm('โหลดแผนนี้กลับมาแก้ไข? ข้อมูลในฟอร์มแผนปัจจุบันจะถูกแทนที่')) return;
+  planData = defaultPlanData();
+  if(entry.data.meta) Object.assign(planData.meta, entry.data.meta);
+  PLAN_TF_CONFIG.forEach(cfg=>{
+    if(entry.data.tf && Array.isArray(entry.data.tf[cfg.key]) && entry.data.tf[cfg.key].length){
+      planData.tf[cfg.key] = entry.data.tf[cfg.key].map(saved=>{
+        const row = newPlanRow();
+        Object.assign(row, saved);
+        return row;
+      });
+    }
+    if(entry.data.notes && entry.data.notes[cfg.key]) Object.assign(planData.notes[cfg.key], entry.data.notes[cfg.key]);
+  });
+  fillPlanMetaInputs();
+  renderPlanForm();
+  savePlanForm();
+  document.querySelector('.tab-btn[data-page="plan"]').click();
+  toast('โหลดแผนกลับมาแก้ไขแล้ว');
+}
+
+async function planHistoryDeleteEntry(id){
+  if(!await appConfirm('ลบประวัติแผนนี้ใช่หรือไม่?')) return;
+  planHistory = planHistory.filter(x=>x.id !== id);
+  savePlanHistoryList();
+  renderPlanHistory();
+  toast('ลบประวัติแผนแล้ว');
+}
+
+document.getElementById('planHistoryList').addEventListener('click', async e=>{
+  const btn = e.target.closest('button[data-view], button[data-export], button[data-load], button[data-del]');
+  if(!btn) return;
+  try{
+    if(btn.dataset.view !== undefined){
+      const entry = planHistory.find(x=>x.id === +btn.dataset.view);
+      if(!entry) return;
+      const canvas = await capturePlanHistoryEntryScreenshot(entry);
+      if(!canvas) return;
+      showImagePreview(canvas, `แผนการเทรด-${(entry.data.meta && entry.data.meta.vanTee) || timestamp()}.jpg`);
+    } else if(btn.dataset.export !== undefined){
+      const entry = planHistory.find(x=>x.id === +btn.dataset.export);
+      if(!entry) return;
+      const canvas = await capturePlanHistoryEntryScreenshot(entry);
+      if(!canvas) return;
+      const dateLabel = (entry.data.meta && entry.data.meta.vanTee) || timestamp();
+      downloadCanvasAsJpeg(canvas, `แผนการเทรด-ประวัติ-${dateLabel}.jpg`, true);
+      toast('ส่งออกรูปแผนแล้ว');
+    } else if(btn.dataset.load !== undefined){
+      await planHistoryLoadEntry(+btn.dataset.load);
+    } else if(btn.dataset.del !== undefined){
+      await planHistoryDeleteEntry(+btn.dataset.del);
+    }
+  }catch(err){
+    await appAlert('เกิดข้อผิดพลาด: ' + (err && err.message ? err.message : String(err)));
+  }
+});
+
+document.getElementById('planSaveHistoryBtn').addEventListener('click', ()=>{
+  const entry = {id: Date.now(), savedAt: new Date().toISOString(), data: JSON.parse(JSON.stringify(planData))};
+  planHistory.push(entry);
+  savePlanHistoryList();
+  toast('บันทึกลงประวัติแล้ว');
+});
+
+loadAthLevels();
+loadPaTypes();
+loadPlanHistory();
+loadPlanForm();
+
+loadWeekly();
+
+loadAll();
+
+/* ---------- PWA: ติดตั้งแอป + service worker (ทำงาน offline) ---------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+
+let deferredInstallPrompt = null;
+const installBtn = document.getElementById('installAppBtn');
+
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if(installBtn) installBtn.style.display = 'inline-flex';
+});
+
+if(installBtn){
+  installBtn.addEventListener('click', async ()=>{
+    if(!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    installBtn.style.display = 'none';
+  });
+}
+
+window.addEventListener('appinstalled', ()=>{
+  if(installBtn) installBtn.style.display = 'none';
+  toast('ติดตั้งแอปเรียบร้อยแล้ว');
+});
 </script>
 </body>
 </html>
