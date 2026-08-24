@@ -140,6 +140,9 @@
   .export-range-row .field{flex:1; min-width:140px; margin-bottom:0;}
   .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px 16px;}
   @media (max-width:560px){ .grid2, .grid3{grid-template-columns:1fr;} }
+  .subrow{display:flex; gap:8px; min-width:0;}
+  .subrow > input{flex:1; min-width:0; width:100%;}
+  @media (max-width:480px){ .subrow{flex-direction:column;} }
   .field{display:flex; flex-direction:column; gap:4px; margin-bottom:12px;}
   .field label{font-size:16px; color:var(--ink-soft); font-weight:600;}
   .field input, .field select, .field textarea{
@@ -567,9 +570,9 @@
         <div class="field"><label>วันที่</label><input type="date" id="f_date"></div>
         <div class="field">
           <label>เวลาตลาด</label>
-          <div style="display:flex; gap:8px;">
-            <input type="time" id="f_time" style="flex:1;">
-            <input type="text" id="f_sessionName" class="mono" readonly placeholder="Session" style="flex:1;">
+          <div class="subrow">
+            <input type="time" id="f_time">
+            <input type="text" id="f_sessionName" class="mono" readonly placeholder="Session">
           </div>
         </div>
         <div class="field"><label>รอบที่</label><select id="f_round"></select></div>
@@ -592,25 +595,25 @@
         <div class="field"><label>ราคาเข้า</label><input type="number" step="any" class="mono" id="f_entry"></div>
         <div class="field">
           <label>Stop Loss (SL)</label>
-          <div style="display:flex; gap:8px;">
-            <input type="number" step="any" class="mono" id="f_slPts" placeholder="จุด" style="flex:1;">
-            <input type="number" step="any" class="mono" id="f_sl" placeholder="ราคาสุทธิ" style="flex:1;">
+          <div class="subrow">
+            <input type="number" step="any" class="mono" id="f_slPts" placeholder="จุด">
+            <input type="number" step="any" class="mono" id="f_sl" placeholder="ราคาสุทธิ">
           </div>
         </div>
         <div class="field">
           <label>Take Profit (TP)</label>
-          <div style="display:flex; gap:8px;">
-            <input type="number" step="any" class="mono" id="f_tpPts" placeholder="จุด" style="flex:1;">
-            <input type="number" step="any" class="mono" id="f_tp" placeholder="ราคาสุทธิ" style="flex:1;">
+          <div class="subrow">
+            <input type="number" step="any" class="mono" id="f_tpPts" placeholder="จุด">
+            <input type="number" step="any" class="mono" id="f_tp" placeholder="ราคาสุทธิ">
           </div>
         </div>
       </div>
       <div class="grid3">
         <div class="field">
           <label>ราคาออก</label>
-          <div style="display:flex; gap:8px;">
-            <input type="number" step="any" class="mono" id="f_exitPts" placeholder="จุด" style="flex:1;">
-            <input type="number" step="any" class="mono" id="f_exit" placeholder="ราคาสุทธิ" style="flex:1;">
+          <div class="subrow">
+            <input type="number" step="any" class="mono" id="f_exitPts" placeholder="จุด">
+            <input type="number" step="any" class="mono" id="f_exit" placeholder="ราคาสุทธิ">
           </div>
         </div>
         <div class="field"><label>ต้นทุนสุทธิ</label><input type="number" step="any" class="mono" id="f_cost"></div>
