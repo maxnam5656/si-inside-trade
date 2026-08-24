@@ -2,8 +2,8 @@
 // กลยุทธ์: cache-first สำหรับไฟล์แอปหลัก, stale-while-revalidate สำหรับฟอนต์/สคริปต์ภายนอก
 // ทุกข้อมูลเทรดยังคงอยู่ใน localStorage ของหน้าเว็บเหมือนเดิม — service worker นี้แค่ทำให้ "ตัวแอป" เปิดได้แม้ไม่มีเน็ต
 
-const APP_CACHE = 'si-trade-app-v1';
-const RUNTIME_CACHE = 'si-trade-runtime-v1';
+const APP_CACHE = 'si-trade-app-v2';
+const RUNTIME_CACHE = 'si-trade-runtime-v2';
 
 const APP_SHELL = [
   './',

@@ -395,12 +395,15 @@
     text-align:left; white-space:nowrap; font-family:'Noto Sans Thai'; font-weight:600;
   }
   .weekly-table td{border-bottom:1px solid var(--line); padding:2px 4px;}
-  .weekly-table input{
+  .weekly-table input, .weekly-table select{
     width:100%; border:none; background:transparent; padding:7px 5px;
     font-family:'Noto Sans Thai'; font-size:16px; color:var(--ink); border-radius:2px;
   }
   .weekly-table input.mono{font-family:'IBM Plex Mono',monospace;}
-  .weekly-table input:focus{outline:1px solid var(--red);}
+  .weekly-table input:focus, .weekly-table select:focus{outline:1px solid var(--red);}
+  .weekly-table select{cursor:pointer;}
+  .weekly-table td.note-cell{min-width:150px;}
+  .weekly-table td.note-cell .note-custom-input{border-top:1px solid var(--line); margin-top:2px;}
   .weekly-table td.rowdel{text-align:center; width:34px;}
   .weekly-table td.rowdel button{
     background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:16px;
@@ -464,6 +467,7 @@
   }
   .toggle-buysell.pa-buy{background:var(--win);}
   .toggle-buysell.pa-sell{background:var(--loss);}
+  .toggle-buysell.pa-none{background:var(--be);}
   .pd-pa-type{
     flex:1 1 90px; min-width:78px; background:var(--paper); border:1px solid var(--line); border-radius:3px;
     padding:9px 6px; font-family:'Noto Sans Thai'; font-size:16px; color:var(--ink);
@@ -2072,24 +2076,43 @@ async function saveWeekly(){
   }catch(e){ console.error('save weekly failed', e); toast('บันทึกไม่สำเร็จ'); }
 }
 
+function renderRoundOptionsHtml(selected){
+  let html = `<option value="">-</option>`;
+  for(let n = 1; n <= 99; n++){
+    html += `<option value="${n}" ${String(selected)===String(n)?'selected':''}>${n}</option>`;
+  }
+  return html;
+}
+
+const WEEKLY_NOTE_PRESETS = ['ปั้นพอร์ต', 'ฝึกวินัย'];
+
 function renderWeekly(){
   const tbody = document.getElementById('weeklyBody');
   tbody.innerHTML = '';
   weeklyRows.forEach(row=>{
     const tr = document.createElement('tr');
+    const isPreset = WEEKLY_NOTE_PRESETS.includes(row.note);
+    const customVal = (!isPreset && row.note) ? row.note : '';
     tr.innerHTML = `
       <td><input type="date" data-field="date" data-id="${row.id}" value="${escapeAttr(row.date||'')}"></td>
-      <td><input type="text" data-field="time" data-id="${row.id}" value="${escapeAttr(row.time||'')}"></td>
-      <td><input type="text" data-field="round" data-id="${row.id}" value="${escapeAttr(row.round||'')}"></td>
+      <td><input type="time" data-field="time" data-id="${row.id}" value="${escapeAttr(row.time||'')}"></td>
+      <td><select data-field="round" data-id="${row.id}">${renderRoundOptionsHtml(row.round)}</select></td>
       <td><input type="number" step="any" class="mono ${numColorClass(row.dollar)}" data-field="dollar" data-id="${row.id}" value="${row.dollar ?? ''}"></td>
       <td><input type="number" step="any" class="mono ${numColorClass(row.baht)}" data-field="baht" data-id="${row.id}" value="${row.baht ?? ''}"></td>
-      <td><input type="text" data-field="note" data-id="${row.id}" value="${escapeAttr(row.note||'')}"></td>
+      <td class="note-cell">
+        <select data-role="noteSelect" data-id="${row.id}">
+          <option value="ปั้นพอร์ต" ${row.note==='ปั้นพอร์ต'?'selected':''}>ปั้นพอร์ต</option>
+          <option value="ฝึกวินัย" ${row.note==='ฝึกวินัย'?'selected':''}>ฝึกวินัย</option>
+          <option value="__custom__" ${!isPreset?'selected':''}>กำหนดเอง…</option>
+        </select>
+        <input type="text" data-field="note" data-id="${row.id}" placeholder="พิมพ์ข้อความเอง" class="note-custom-input" style="${!isPreset?'':'display:none;'}" value="${escapeAttr(customVal)}">
+      </td>
       <td class="rowdel"><button data-del="${row.id}" title="ลบแถว">✕</button></td>
     `;
     tbody.appendChild(tr);
   });
 
-  tbody.querySelectorAll('input').forEach(inp=>{
+  tbody.querySelectorAll('input[data-field], select[data-field]').forEach(inp=>{
     inp.addEventListener('change', e=>{
       const id = e.target.dataset.id;
       const field = e.target.dataset.field;
@@ -2099,6 +2122,23 @@ function renderWeekly(){
         e.target.classList.remove('num-pos','num-neg');
         const cls = numColorClass(e.target.value);
         if(cls) e.target.classList.add(cls);
+      }
+    });
+  });
+  tbody.querySelectorAll('[data-role="noteSelect"]').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const id = e.target.dataset.id;
+      const row = weeklyRows.find(r=> String(r.id) === id);
+      const customInput = e.target.nextElementSibling;
+      if(e.target.value === '__custom__'){
+        customInput.style.display = '';
+        customInput.value = row ? (row.note || '') : '';
+        customInput.focus();
+        if(row){ row.note = customInput.value; saveWeekly(); }
+      } else {
+        customInput.style.display = 'none';
+        customInput.value = '';
+        if(row){ row.note = e.target.value; saveWeekly(); }
       }
     });
   });
@@ -2459,6 +2499,18 @@ document.getElementById('planAthAddBtn').addEventListener('click', async ()=>{
   savePlanForm();
 });
 
+function paDirLabel(dir){
+  return dir === 'sell' ? 'SELL' : (dir === 'none' ? 'ไม่มี' : 'BUY');
+}
+function paDirClass(dir){
+  return dir === 'sell' ? 'pa-sell' : (dir === 'none' ? 'pa-none' : 'pa-buy');
+}
+function nextPaDir(dir){
+  if(dir === 'buy' || !dir) return 'sell';
+  if(dir === 'sell') return 'none';
+  return 'buy';
+}
+
 function renderPlanForm(){
   const container = document.getElementById('planTfContainer');
   container.innerHTML = '';
@@ -2476,7 +2528,7 @@ function renderPlanForm(){
           <div class="plan-row-fields">
             <span class="plan-label">PA</span>
             <div class="plan-pa-group">
-              <button type="button" class="toggle-buysell pd-pa-dir ${row.paDir==='sell'?'pa-sell':'pa-buy'}">${row.paDir==='sell'?'SELL':'BUY'}</button>
+              <button type="button" class="toggle-buysell pd-pa-dir ${paDirClass(row.paDir)}">${paDirLabel(row.paDir)}</button>
               <select class="pd-pa-type">${renderPaTypeOptionsHtml(row.pa)}</select>
               <button type="button" class="pd-pa-type-add" title="เพิ่มตัวเลือก PA">+</button>
             </div>
@@ -2604,10 +2656,10 @@ document.getElementById('planTfContainer').addEventListener('click', async e=>{
     const rowEl = paDirBtn.closest('.plan-row');
     const tf = rowEl.dataset.tf;
     const row = planData.tf[tf][+rowEl.dataset.row];
-    row.paDir = row.paDir === 'sell' ? 'buy' : 'sell';
-    paDirBtn.textContent = row.paDir === 'sell' ? 'SELL' : 'BUY';
-    paDirBtn.classList.toggle('pa-buy', row.paDir === 'buy');
-    paDirBtn.classList.toggle('pa-sell', row.paDir === 'sell');
+    row.paDir = nextPaDir(row.paDir);
+    paDirBtn.textContent = paDirLabel(row.paDir);
+    paDirBtn.classList.remove('pa-buy','pa-sell','pa-none');
+    paDirBtn.classList.add(paDirClass(row.paDir));
     applyAutoCalc(tf, row, rowEl);
     savePlanForm();
     return;
@@ -2797,11 +2849,12 @@ function drawPlanCanvas(){
       ctx.font = '400 16px "Noto Sans Thai"';
       const tp1 = row.tp1chk ? '☑' : '☐';
       const tp2 = row.tp2chk ? '☑' : '☐';
-      const paDirLabel = row.paDir === 'sell' ? 'SELL' : 'BUY';
+      const paDirTxt = paDirLabel(row.paDir);
       const checkTagLabel = row.checkTag === 'มี' ? 'มี' : 'OM';
+      const paDirColor = row.paDir==='sell' ? IMG_COLORS.loss : (row.paDir==='none' ? IMG_COLORS.be : IMG_COLORS.win);
       const segs = [
         {text:`${i+1}. PA `, color:IMG_COLORS.ink},
-        {text: paDirLabel, color: row.paDir==='sell' ? IMG_COLORS.loss : IMG_COLORS.win},
+        {text: paDirTxt, color: paDirColor},
         {text:`/${row.pa||'-'}   PASL `, color:IMG_COLORS.ink},
         {text: row.pasl||'-', color: IMG_COLORS.ink},
         {text:`   จุดเช็ค [${checkTagLabel}] `, color:IMG_COLORS.ink},
