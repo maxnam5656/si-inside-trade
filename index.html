@@ -60,6 +60,17 @@
     position:absolute; left:0; top:0; bottom:0; width:3px;
     background:var(--red);
   }
+  .hero-actions{
+    position:absolute; top:16px; right:16px;
+    display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; max-width:260px;
+  }
+  .hero-actions button{ margin-top:0; white-space:nowrap; }
+  @media (max-width:640px){
+    header.hero{ padding-top:20px; }
+    .hero-actions{
+      position:static; max-width:none; justify-content:flex-start; margin:14px 0 0 18px;
+    }
+  }
   h1{
     font-family:'Noto Serif Thai', serif;
     font-size:clamp(26px,5vw,38px);
@@ -180,7 +191,7 @@
   }
 
   /* trade cards */
-  .filters{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
+  .filters{display:flex; gap:8px; margin:22px 0 14px; flex-wrap:wrap;}
   .filters button{
     background:var(--paper); border:1px solid var(--line); border-radius:20px;
     padding:6px 14px; font-size:16px; cursor:pointer; color:var(--ink-soft);
@@ -540,7 +551,11 @@
   <header class="hero">
     <h1>สมุดบันทึกระบบ Si Inside Trade</h1>
     <p class="motto" id="motto" contenteditable="true" spellcheck="false">ทุกอย่างจะมาในเวลาที่พร้อมเสมอ</p>
-    <button id="installAppBtn" class="add-rule-btn" style="display:none; position:absolute; top:16px; right:16px; margin-top:0;">⬇ ติดตั้งแอป</button>
+    <div class="hero-actions">
+      <button id="installAppBtn" class="add-rule-btn" style="display:none;">⬇ ติดตั้งแอป</button>
+      <button id="exportBtn" class="add-rule-btn">⬇ ส่งออกข้อมูล (JSON)</button>
+      <button id="importBtn" class="add-rule-btn">⬆ นำเข้าข้อมูล (JSON)</button>
+    </div>
   </header>
 
   <input type="file" id="importFile" accept="application/json" style="display:none;">
@@ -651,8 +666,6 @@
   <section>
     <div class="section-title">ประวัติการเทรด</div>
     <div class="backup-bar" style="justify-content:flex-start; margin:0 0 16px;">
-      <button id="exportBtn">⬇ ส่งออกข้อมูล (JSON)</button>
-      <button id="importBtn">⬆ นำเข้าข้อมูล (JSON)</button>
       <button id="exportSummaryImgBtn">📷 ส่งออกรูปสรุป (JPEG 10x10ซม.)</button>
       <button id="exportAllImgBtn">📷 ส่งออกรูปทุกรายการ (JPEG)</button>
     </div>
@@ -1292,23 +1305,56 @@ function timestamp(){
   return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
 }
 
-document.getElementById('exportBtn').addEventListener('click', ()=>{
+function collectAllAppData(){
+  const data = {};
+  for(let i=0; i<localStorage.length; i++){
+    const key = localStorage.key(i);
+    if(key && key.indexOf(STORAGE_PREFIX) === 0){
+      data[key.slice(STORAGE_PREFIX.length)] = localStorage.getItem(key);
+    }
+  }
+  return data;
+}
+
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
   const backup = {
+    app: 'si-inside-trade',
+    version: 2,
     exportedAt: new Date().toISOString(),
-    motto: document.getElementById('motto').textContent.trim(),
-    rules: rules,
-    trades: trades
+    data: collectAllAppData()
   };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `บันทึกการเทรด-สำรอง-${timestamp()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  toast('ส่งออกไฟล์แล้ว');
+  const filename = `บันทึกทั้งเว็บ-สำรอง-${timestamp()}.json`;
+  const jsonStr = JSON.stringify(backup, null, 2);
+  const blob = new Blob([jsonStr], {type:'application/json'});
+
+  // iOS standalone PWA (เพิ่มไปหน้าจอโฮม) ไม่รองรับ a.download + blob URL
+  // ใช้ Web Share API แทนถ้ามี เพื่อเปิด share sheet ให้บันทึกไปยัง Files ได้จริง
+  const file = new File([blob], filename, {type:'application/json'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file], title: filename});
+      toast('ส่งออกไฟล์แล้ว');
+      return;
+    }catch(err){
+      if(err && err.name === 'AbortError') return;
+    }
+  }
+
+  try{
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('ส่งออกไฟล์แล้ว');
+  }catch(err){
+    const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(jsonStr);
+    window.open(dataUrl, '_blank');
+    toast('เปิดไฟล์ในแท็บใหม่ — กดค้างที่หน้าจอเพื่อบันทึก');
+  }
 });
 
 document.getElementById('importBtn').addEventListener('click', ()=>{
@@ -1328,24 +1374,63 @@ document.getElementById('importFile').addEventListener('change', (e)=>{
       e.target.value = '';
       return;
     }
-    if(!Array.isArray(data.trades)){
+
+    // รูปแบบใหม่ (v2): สำรองข้อมูลทั้งเว็บ ({app, version:2, data:{...key/value ทุกหน้า}})
+    const isFullBackup = data && data.data && typeof data.data === 'object' && !Array.isArray(data.data);
+    // รูปแบบเก่า: สำรองเฉพาะ กฎ/รายการเทรด ({motto, rules, trades})
+    const isLegacyBackup = Array.isArray(data && data.trades);
+
+    if(!isFullBackup && !isLegacyBackup){
       await appAlert('รูปแบบไฟล์ไม่ตรงกับไฟล์สำรองของแอปนี้');
       e.target.value = '';
       return;
     }
 
+    if(isFullBackup){
+      const mode = await appConfirm(
+        'กด "ตกลง" เพื่อรวมเฉพาะรายการเทรด/กฎเข้ากับข้อมูลปัจจุบัน (ข้อมูลหน้าอื่น เช่น ปฏิทิน สรุปรายสัปดาห์ แผนการเทรด จะไม่ถูกแตะต้อง)\n' +
+        'กด "ยกเลิก" เพื่อแทนที่ข้อมูลทั้งเว็บทั้งหมดด้วยไฟล์ที่นำเข้า (ทุกหน้า) แล้วโหลดหน้าใหม่'
+      );
+
+      if(mode){
+        const incomingTrades = data.data.trades ? JSON.parse(data.data.trades) : [];
+        const incomingRules = data.data.rules ? JSON.parse(data.data.rules) : [];
+        const map = new Map(trades.map(t=>[t.id, t]));
+        incomingTrades.forEach(t=> map.set(t.id, t));
+        trades = Array.from(map.values());
+        incomingRules.forEach(r=>{ if(r && !rules.includes(r)) rules.push(r); });
+        await saveTrades();
+        await saveRules();
+        renderRules();
+        renderStats();
+        renderTrades();
+        toast('รวมข้อมูลรายการเทรด/กฎสำเร็จ');
+      } else {
+        for(let i = localStorage.length - 1; i >= 0; i--){
+          const key = localStorage.key(i);
+          if(key && key.indexOf(STORAGE_PREFIX) === 0) localStorage.removeItem(key);
+        }
+        Object.keys(data.data).forEach(k=>{
+          localStorage.setItem(STORAGE_PREFIX + k, data.data[k]);
+        });
+        toast('นำเข้าข้อมูลทั้งเว็บสำเร็จ กำลังโหลดหน้าใหม่...');
+        setTimeout(()=> location.reload(), 800);
+      }
+      e.target.value = '';
+      return;
+    }
+
+    // ---- รองรับไฟล์สำรองรูปแบบเก่า ----
     const mode = await appConfirm(
       'กด "ตกลง" เพื่อรวมข้อมูลนำเข้ากับข้อมูลปัจจุบัน (รายการเทรดซ้ำ id จะถูกแทนที่)\n' +
       'กด "ยกเลิก" เพื่อแทนที่ข้อมูลทั้งหมดด้วยไฟล์ที่นำเข้า'
     );
 
     if(mode){
-      // merge: incoming trades overwrite same id, others appended
       const incoming = data.trades;
       const map = new Map(trades.map(t=>[t.id, t]));
       incoming.forEach(t=> map.set(t.id, t));
       trades = Array.from(map.values());
-      // merge rules: append any rule text not already present
       (data.rules||[]).forEach(r=>{ if(r && !rules.includes(r)) rules.push(r); });
     } else {
       trades = data.trades;
