@@ -516,7 +516,7 @@
   }
   .pd-viewpoint{
     width:100%; min-height:56px; background:var(--paper); border:1px solid var(--line); border-radius:3px;
-    padding:10px 12px; font-family:'Noto Sans Thai'; font-size:16px; color:var(--ink); resize:vertical;
+    padding:10px 12px; font-family:'Noto Sans Thai'; font-size:16px; color:var(--ink); resize:none; overflow:hidden;
   }
   .pd-viewpoint:focus{outline:none; border-color:var(--red);}
   .plan-note-box{
@@ -530,7 +530,14 @@
     padding:8px 8px; font-family:'Noto Sans Thai'; font-size:16px; color:var(--ink);
   }
   .plan-note-row input[type=text]:focus{outline:none; border-color:var(--red);}
-  .plan-note-cycle-note-field{flex:2 1 220px;}
+  .plan-note-row textarea.pd-note-cycle-note{
+    flex:1; min-width:60px; width:100%; background:var(--paper); border:1px solid var(--line); border-radius:3px;
+    padding:8px 8px; font-family:'Noto Sans Thai'; font-size:16px; color:var(--ink);
+    resize:none; overflow:hidden; line-height:1.4; min-height:38px; display:block;
+  }
+  .plan-note-row textarea.pd-note-cycle-note:focus{outline:none; border-color:var(--red);}
+  .plan-note-cycle-note-field{flex:2 1 220px; align-items:flex-start !important;}
+  .plan-note-cycle-note-field label{padding-top:8px;}
   .pd-note-cycle-btn{
     border:none; border-radius:3px; padding:9px 14px; font-family:'IBM Plex Mono',monospace;
     font-size:16px; font-weight:700; cursor:pointer; color:#fff; background:var(--ink);
@@ -1509,6 +1516,31 @@ function wrapTextChars(ctx, text, x, y, maxWidth, lineHeight, maxLines){
   }
   if(line){ ctx.fillText(line, x, curY); curY += lineHeight; }
   return curY;
+}
+
+function wrapTextLinesArr(ctx, text, maxWidth){
+  const chars = Array.from(String(text||''));
+  let line = '', lines = [];
+  for(let i=0;i<chars.length;i++){
+    const test = line + chars[i];
+    if(ctx.measureText(test).width > maxWidth && line){
+      lines.push(line);
+      line = chars[i];
+    } else {
+      line = test;
+    }
+  }
+  if(line) lines.push(line);
+  return lines;
+}
+function wrapParagraphLines(ctx, text, maxWidth){
+  if(!text) return [];
+  let out = [];
+  String(text).split('\n').forEach(p=>{
+    if(p === ''){ out.push(''); return; }
+    out = out.concat(wrapTextLinesArr(ctx, p, maxWidth));
+  });
+  return out;
 }
 
 function newJournalCanvas(){
@@ -2757,18 +2789,19 @@ function renderPlanForm(){
           <div class="plan-note-field"><label>เทรนด์</label><button type="button" class="toggle-buysell pd-note-trend-btn ${note.trend==='sell'?'pa-sell':'pa-buy'}">${note.trend==='sell'?'SELL':'BUY'}</button></div>
           <div class="plan-note-field"><label>แรง</label><button type="button" class="toggle-buysell pd-note-strength-btn ${note.strength==='sell'?'pa-sell':'pa-buy'}">${note.strength==='sell'?'SELL':'BUY'}</button></div>
           <div class="plan-note-field"><label>วงจร</label><button type="button" class="pd-note-cycle-btn">${note.cycle||'SIG'}</button></div>
-          <div class="plan-note-field plan-note-cycle-note-field"><input type="text" class="pd-note-cycle-note" placeholder="บันทึกเพิ่มเติม..." value="${escapeAttr(note.cycleNote)}"></div>
+          <div class="plan-note-field plan-note-cycle-note-field"><textarea class="pd-note-cycle-note" placeholder="บันทึกเพิ่มเติม..." rows="1">${escapeHtml(note.cycleNote)}</textarea></div>
         </div>
       </div>
       <div class="plan-rows" data-tf="${cfg.key}">${rowsHtml}</div>
       <button type="button" class="add-rule-btn plan-add-row-btn" data-tf="${cfg.key}">+ เพิ่มชุด PA</button>
       <div class="plan-viewpoint" data-tf="${cfg.key}">
         <label>มุมมอง</label>
-        <textarea class="pd-viewpoint" rows="2" placeholder="มุมมองรวมของ ${cfg.key}...">${escapeHtml(note.viewpoint)}</textarea>
+        <textarea class="pd-viewpoint" rows="1" placeholder="มุมมองรวมของ ${cfg.key}...">${escapeHtml(note.viewpoint)}</textarea>
       </div>
     `;
     container.appendChild(block);
   });
+  container.querySelectorAll('.pd-note-cycle-note, .pd-viewpoint').forEach(autoGrowTextarea);
 }
 
 function refreshNumClass(el, val){
@@ -2788,6 +2821,12 @@ function applyAutoCalc(tf, row, rowEl){
     const el = rowEl.querySelector('.pd-' + valKey);
     if(el){ el.value = row[valKey]; refreshNumClass(el, row[valKey]); }
   });
+}
+
+function autoGrowTextarea(el){
+  if(!el) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
 }
 
 document.getElementById('planTfContainer').addEventListener('input', e=>{
@@ -2810,12 +2849,14 @@ document.getElementById('planTfContainer').addEventListener('input', e=>{
   const noteEl = e.target.closest('.plan-note-box');
   if(noteEl && e.target.classList.contains('pd-note-cycle-note')){
     planData.notes[noteEl.dataset.tf].cycleNote = e.target.value;
+    autoGrowTextarea(e.target);
     savePlanForm();
     return;
   }
   const vpEl = e.target.closest('.plan-viewpoint');
   if(vpEl && e.target.classList.contains('pd-viewpoint')){
     planData.notes[vpEl.dataset.tf].viewpoint = e.target.value;
+    autoGrowTextarea(e.target);
     savePlanForm();
   }
 });
@@ -2986,10 +3027,24 @@ function newJournalCanvasTall(height){
 
 function drawPlanCanvas(){
   const padX = 50, maxW = IMG_PX - padX*2;
-  const rowH = 32, tfTitleH = 34, noteBoxH = 74, viewpointLineH = 15, viewpointGap = 14, blockGap = 26, headerH = 210, bottomPad = 50;
+  const rowH = 32, tfTitleH = 34, noteBoxBaseH = 74, noteLineH = 21, viewpointLineH = 22, viewpointGap = 14, blockGap = 26, headerH = 210, bottomPad = 50;
 
+  const measureCanvas = document.createElement('canvas');
+  const mctx = measureCanvas.getContext('2d');
+
+  function cycleNoteLines(note){
+    if(!note.cycleNote) return [];
+    mctx.font = '400 15px "Noto Sans Thai"';
+    return wrapParagraphLines(mctx, 'บันทึกเพิ่มเติม: ' + note.cycleNote, maxW-20);
+  }
+  function noteBoxHeight(note){
+    const lines = cycleNoteLines(note);
+    return noteBoxBaseH + (lines.length ? lines.length*noteLineH + 6 : 0);
+  }
   function viewpointLines(note){
-    return note.viewpoint ? note.viewpoint.split('\n').slice(0,4) : [];
+    if(!note.viewpoint) return [];
+    mctx.font = '400 14px "Noto Sans Thai"';
+    return wrapParagraphLines(mctx, note.viewpoint, maxW-10);
   }
   function viewpointHeight(note){
     const lines = viewpointLines(note);
@@ -3000,7 +3055,7 @@ function drawPlanCanvas(){
   PLAN_TF_CONFIG.forEach(cfg=>{
     const rowsH = planData.tf[cfg.key].length * rowH;
     const note = planData.notes[cfg.key];
-    bodyH += tfTitleH + noteBoxH + rowsH + viewpointHeight(note) + blockGap;
+    bodyH += tfTitleH + noteBoxHeight(note) + rowsH + viewpointHeight(note) + blockGap;
   });
   const totalHeight = headerH + bodyH + bottomPad;
 
@@ -3042,12 +3097,23 @@ function drawPlanCanvas(){
     y += tfTitleH;
 
     const note = planData.notes[cfg.key];
+    const boxH = noteBoxHeight(note);
     ctx.strokeStyle = IMG_COLORS.line;
-    ctx.strokeRect(padX, y, maxW, noteBoxH-16);
+    ctx.strokeRect(padX, y, maxW, boxH-16);
     ctx.font = '400 16px "Noto Sans Thai"';
     ctx.fillStyle = IMG_COLORS.inkSoft;
-    ctx.fillText(`เทรนด์ ${note.trend==='sell'?'SELL':'BUY'}    แรง ${note.strength==='sell'?'SELL':'BUY'}    วงจร ${note.cycle||'SIG'}${note.cycleNote?' ('+note.cycleNote+')':''}`, padX+10, y+30);
-    y += noteBoxH;
+    ctx.fillText(`เทรนด์ ${note.trend==='sell'?'SELL':'BUY'}    แรง ${note.strength==='sell'?'SELL':'BUY'}    วงจร ${note.cycle||'SIG'}`, padX+10, y+30);
+    const cLines = cycleNoteLines(note);
+    if(cLines.length){
+      ctx.font = '400 15px "Noto Sans Thai"';
+      ctx.fillStyle = IMG_COLORS.inkSoft;
+      let cy = y + 30 + noteLineH;
+      cLines.forEach(l=>{
+        ctx.fillText(l, padX+10, cy);
+        cy += noteLineH;
+      });
+    }
+    y += boxH;
 
     planData.tf[cfg.key].forEach((row, i)=>{
       ctx.font = '400 16px "Noto Sans Thai"';
@@ -3086,7 +3152,7 @@ function drawPlanCanvas(){
       ctx.font = '400 14px "Noto Sans Thai"';
       ctx.fillStyle = IMG_COLORS.inkSoft;
       vLines.forEach(l=>{
-        ctx.fillText('· ' + l, padX+10, y);
+        ctx.fillText(l ? '· ' + l : '', padX+10, y);
         y += viewpointLineH;
       });
       y += viewpointGap;
