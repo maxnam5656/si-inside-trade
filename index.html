@@ -871,12 +871,14 @@ function appPrompt(message, defaultValue){
     input.addEventListener('keydown', onKeydown);
   });
 }
-function appConfirm(message){
+function appConfirm(message, okText, cancelText){
   return new Promise(resolve=>{
     const overlay = document.getElementById('genericModalOverlay');
     document.getElementById('genericModalMsg').textContent = message;
     const okBtn = document.getElementById('genericModalOk');
     const cancelBtn = document.getElementById('genericModalCancel');
+    okBtn.textContent = okText || 'ตกลง';
+    cancelBtn.textContent = cancelText || 'ยกเลิก';
     cancelBtn.style.display = '';
     overlay.style.display = 'flex';
     function cleanup(result){
@@ -884,6 +886,8 @@ function appConfirm(message){
       okBtn.removeEventListener('click', onOk);
       cancelBtn.removeEventListener('click', onCancel);
       overlay.removeEventListener('click', onOverlay);
+      okBtn.textContent = 'ตกลง';
+      cancelBtn.textContent = 'ยกเลิก';
       resolve(result);
     }
     function onOk(){ cleanup(true); }
@@ -1394,12 +1398,25 @@ document.getElementById('importFile').addEventListener('change', (e)=>{
     }
 
     if(isFullBackup){
-      const mode = await appConfirm(
-        'กด "ตกลง" เพื่อรวมเฉพาะรายการเทรด/กฎเข้ากับข้อมูลปัจจุบัน (ข้อมูลหน้าอื่น เช่น ปฏิทิน สรุปรายสัปดาห์ แผนการเทรด จะไม่ถูกแตะต้อง)\n' +
-        'กด "ยกเลิก" เพื่อแทนที่ข้อมูลทั้งเว็บทั้งหมดด้วยไฟล์ที่นำเข้า (ทุกหน้า) แล้วโหลดหน้าใหม่'
+      const fullImport = await appConfirm(
+        'ไฟล์นี้เป็นไฟล์สำรองข้อมูลทั้งเว็บ\n\n' +
+        '"นำเข้าทั้งหมด" จะแทนที่ข้อมูลทุกหน้า (ปฏิทิน, สรุปรายสัปดาห์, แผนการเทรด, ประวัติแผน, รายการเทรด, กฎ ฯลฯ) ด้วยไฟล์นี้ แล้วโหลดหน้าใหม่\n\n' +
+        '"เฉพาะรายการเทรด/กฎ" จะรวมเฉพาะรายการเทรดและกฎเข้ากับข้อมูลปัจจุบัน โดยไม่แตะหน้าอื่น',
+        'นำเข้าทั้งหมด',
+        'เฉพาะรายการเทรด/กฎ'
       );
 
-      if(mode){
+      if(fullImport){
+        for(let i = localStorage.length - 1; i >= 0; i--){
+          const key = localStorage.key(i);
+          if(key && key.indexOf(STORAGE_PREFIX) === 0) localStorage.removeItem(key);
+        }
+        Object.keys(data.data).forEach(k=>{
+          localStorage.setItem(STORAGE_PREFIX + k, data.data[k]);
+        });
+        toast('นำเข้าข้อมูลทั้งเว็บสำเร็จ กำลังโหลดหน้าใหม่...');
+        setTimeout(()=> location.reload(), 800);
+      } else {
         const incomingTrades = data.data.trades ? JSON.parse(data.data.trades) : [];
         const incomingRules = data.data.rules ? JSON.parse(data.data.rules) : [];
         const map = new Map(trades.map(t=>[t.id, t]));
@@ -1412,16 +1429,6 @@ document.getElementById('importFile').addEventListener('change', (e)=>{
         renderStats();
         renderTrades();
         toast('รวมข้อมูลรายการเทรด/กฎสำเร็จ');
-      } else {
-        for(let i = localStorage.length - 1; i >= 0; i--){
-          const key = localStorage.key(i);
-          if(key && key.indexOf(STORAGE_PREFIX) === 0) localStorage.removeItem(key);
-        }
-        Object.keys(data.data).forEach(k=>{
-          localStorage.setItem(STORAGE_PREFIX + k, data.data[k]);
-        });
-        toast('นำเข้าข้อมูลทั้งเว็บสำเร็จ กำลังโหลดหน้าใหม่...');
-        setTimeout(()=> location.reload(), 800);
       }
       e.target.value = '';
       return;
@@ -1742,6 +1749,34 @@ function drawSummaryCanvas(){
   return canvas;
 }
 
+function swapTextareasForCapture(container){
+  const restores = [];
+  container.querySelectorAll('textarea.pd-note-cycle-note, textarea.pd-viewpoint').forEach(ta=>{
+    const cs = getComputedStyle(ta);
+    const div = document.createElement('div');
+    div.textContent = ta.value;
+    if(!ta.value) div.innerHTML = '&nbsp;';
+    ['fontFamily','fontSize','fontWeight','fontStyle','lineHeight','color','padding',
+     'borderWidth','borderStyle','borderColor','borderRadius','backgroundColor',
+     'boxSizing','textAlign','letterSpacing'].forEach(prop=>{
+      div.style[prop] = cs[prop];
+    });
+    div.style.width = ta.getBoundingClientRect().width + 'px';
+    div.style.flex = '0 0 auto';
+    div.style.minHeight = cs.minHeight;
+    div.style.whiteSpace = 'pre-wrap';
+    div.style.overflowWrap = 'break-word';
+    div.style.wordBreak = 'break-word';
+    div.style.overflow = 'visible';
+    div.style.display = 'block';
+    div.className = ta.className + ' pd-capture-mirror';
+    ta.style.display = 'none';
+    ta.insertAdjacentElement('afterend', div);
+    restores.push(()=>{ div.remove(); ta.style.display = ''; });
+  });
+  return restores;
+}
+
 async function captureElementAsCanvas(el){
   if(typeof html2canvas === 'undefined'){
     await appAlert('ไม่สามารถโหลดระบบสร้างภาพได้ (ต้องเชื่อมต่ออินเทอร์เน็ตครั้งแรกที่ใช้งาน) กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
@@ -1765,7 +1800,9 @@ async function capturePlanCardScreenshot(){
   const actionsEl = card.querySelector('.form-actions');
   const prevDisplay = actionsEl ? actionsEl.style.display : null;
   if(actionsEl) actionsEl.style.display = 'none';
+  const restoreTextareas = swapTextareasForCapture(card);
   const canvas = await captureElementAsCanvas(card);
+  restoreTextareas.forEach(fn=>fn());
   if(actionsEl) actionsEl.style.display = prevDisplay;
   return canvas;
 }
